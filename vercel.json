@@ -1,0 +1,6 @@
+{
+  "rewrites": [
+    { "source": "/api/minimax/:path*", "destination": "https://api.minimaxi.com/:path*" },
+    { "source": "/api/burnhair/:path*", "destination": "https://cn-test.burn.hair/:path*" }
+  ]
+}

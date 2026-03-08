@@ -1,0 +1,51 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --bg-gradient-start: #fef9f0;
+  --bg-gradient-end: #f5e6d3;
+  --card-bg: rgba(255, 252, 248, 0.9);
+  --accent: #c49a6c;
+  --accent-soft: #e8d5c4;
+  --text-primary: #3d2c29;
+  --text-secondary: #6b5b57;
+}
+
+body {
+  margin: 0;
+  font-family: 'Noto Sans SC', system-ui, sans-serif;
+  background: linear-gradient(135deg, var(--bg-gradient-start) 0%, var(--bg-gradient-end) 100%);
+  min-height: 100vh;
+  color: var(--text-primary);
+}
+
+#root {
+  min-height: 100vh;
+}
+
+/* 宫崎骏风格柔和滚动 */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--accent-soft) transparent;
+}
+
+*::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+*::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+*::-webkit-scrollbar-thumb {
+  background: var(--accent-soft);
+  border-radius: 4px;
+}
+
+*::-webkit-scrollbar-thumb:hover {
+  background: var(--accent);
+}
