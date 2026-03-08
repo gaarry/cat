@@ -14,11 +14,13 @@ function getApiKey(): string {
 
 type ImageStyle = 'ghibli' | 'emoji' | 'realistic' | 'anime' | 'simple';
 
-function buildPetImagePrompt(breedName: string, species: string, style: ImageStyle): string {
+function buildPetImagePrompt(breedName: string, species: string, style: ImageStyle, color?: string, features?: string): string {
+  const baseDesc = color || features ? `with ${color || ''} ${features || ''}`.trim() : '';
+  
   switch (style) {
     case 'ghibli':
       return (
-        `A cute ${species} (${breedName}), portrait, head and shoulders. ` +
+        `A cute ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''}, portrait, head and shoulders. ` +
         `Studio Ghibli art style by Hayao Miyazaki: hand-drawn 2D anime, soft watercolor texture, pastel palette, warm dreamy lighting. ` +
         `Big expressive eyes, gentle friendly expression, simple rounded shapes. ` +
         `Illustrated character sheet style, no photo-realism, whimsical and heartwarming. ` +
@@ -26,7 +28,7 @@ function buildPetImagePrompt(breedName: string, species: string, style: ImageSty
       );
     case 'emoji':
       return (
-        `A cute ${species} (${breedName}) avatar, emoji style, ` +
+        `A cute ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''} avatar, emoji style, ` +
         `3D rendered character, colorful, flat design, minimalist, bold colors, ` +
         `playful and cute, Apple Memoji aesthetic, big expressive eyes, ` +
         `friendly smile, rounded shapes, white background, ` +
@@ -34,7 +36,7 @@ function buildPetImagePrompt(breedName: string, species: string, style: ImageSty
       );
     case 'realistic':
       return (
-        `A photorealistic ${species} (${breedName}), high quality professional photography, ` +
+        `A photorealistic ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''}, high quality professional photography, ` +
         `studio lighting, shallow depth of field, extremely detailed fur texture, ` +
         `natural realistic colors, looking directly at camera, friendly expression, ` +
         `crisp clear eyes, clean solid background, ` +
@@ -43,7 +45,7 @@ function buildPetImagePrompt(breedName: string, species: string, style: ImageSty
       );
     case 'anime':
       return (
-        `A cute ${species} (${breedName}), anime style, Japanese manga, ` +
+        `A cute ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''}, anime style, Japanese manga, ` +
         `large expressive eyes with highlights, intricate details, vibrant colors, ` +
         `clean linework, anime character portrait, shiny hair, ` +
         `colorful background, kawaii aesthetic, polished digital art, ` +
@@ -51,7 +53,7 @@ function buildPetImagePrompt(breedName: string, species: string, style: ImageSty
       );
     case 'simple':
       return (
-        `A cute ${species} (${breedName}), simple hand-drawn style, ` +
+        `A cute ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''}, simple hand-drawn style, ` +
         `naive art, primitive painting, childlike drawing, warm and friendly, ` +
         `soft edges, gentle colors, innocent expression, ` +
         `paper texture background, folk art style, ` +
@@ -59,7 +61,7 @@ function buildPetImagePrompt(breedName: string, species: string, style: ImageSty
       );
     default:
       return (
-        `A cute ${species} (${breedName}), ${style} style, ` +
+        `A cute ${species} (${breedName})${baseDesc ? `, ${baseDesc}` : ''}, ${style} style, ` +
         `high quality digital art, portrait, head and shoulders.`
       );
   }
@@ -69,6 +71,8 @@ export interface GenerateImageOptions {
   breedName: string;
   species: string;
   style?: ImageStyle;
+  color?: string;
+  features?: string;
 }
 
 /**
@@ -79,7 +83,7 @@ export async function generatePetImageBurnHair(options: GenerateImageOptions): P
   if (!apiKey) return null;
 
   const style: ImageStyle = options.style || 'realistic';
-  const prompt = buildPetImagePrompt(options.breedName, options.species, style);
+  const prompt = buildPetImagePrompt(options.breedName, options.species, style, options.color, options.features);
 
   const res = await fetch(IMAGE_URL, {
     method: 'POST',
