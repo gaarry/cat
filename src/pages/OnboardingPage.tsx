@@ -91,41 +91,33 @@ export function OnboardingPage() {
     setGeneratedImageUrl(null);
   }, []);
 
-  // AI 识别
+  // AI 识别：先切步骤再批量更新状态，减少界面等待感
   const handleIdentify = async () => {
     if (!photoDataUrl) return;
     setIsIdentifying(true);
-    
+
     try {
       const result = await identifyPetFromImage(photoDataUrl, visionModel);
-      
+
       if (result) {
         const petSpecies = result.species.toLowerCase();
         let mappedSpecies: PetSpecies = 'cat';
-        
         if (petSpecies.includes('dog') || petSpecies.includes('狗')) mappedSpecies = 'dog';
         else if (petSpecies.includes('rabbit') || petSpecies.includes('兔')) mappedSpecies = 'rabbit';
         else if (petSpecies.includes('parrot') || petSpecies.includes('鹦鹉')) mappedSpecies = 'parrot';
         else if (petSpecies.includes('pig') || petSpecies.includes('猪')) mappedSpecies = 'pig';
-        
-        setSpecies(mappedSpecies);
-        
+
         const matched = matchBreed(result.breed, mappedSpecies);
-        if (matched) {
-          setBreedId(matched.id);
-          setBreedName(matched.name);
-        } else {
-          const defaultBreed = breeds.find(b => b.species === mappedSpecies);
-          if (defaultBreed) {
-            setBreedId(defaultBreed.id);
-            setBreedName(defaultBreed.name);
-          }
-        }
-        
+        const defaultBreed = breeds.find((b) => b.species === mappedSpecies);
+        const breedIdNext = matched ? matched.id : defaultBreed?.id ?? breedId;
+        const breedNameNext = matched ? matched.name : defaultBreed?.name ?? breedName;
+
+        setStepIndex(1);
+        setSpecies(mappedSpecies);
+        setBreedId(breedIdNext);
+        setBreedName(breedNameNext);
         setColor(result.color || '');
         setFeatures(result.features || '');
-        
-        setStepIndex(1);
       }
     } catch (e) {
       console.error('识别失败:', e);
@@ -150,14 +142,15 @@ export function OnboardingPage() {
         color: color || undefined,
         features: features || undefined,
         model: imageModel,
+        referenceImage: photoDataUrl || undefined, // 上传的宠物照片，供生成时参考
       });
       
       setGeneratedImageUrl(imageUrl || photoDataUrl);
-      setStepIndex(2);
+      setStepIndex(3); // 直接进入「起名」步骤展示结果，避免停在加载页
     } catch (e) {
       console.error('生成失败:', e);
       setGeneratedImageUrl(photoDataUrl);
-      setStepIndex(2);
+      setStepIndex(3);
     } finally {
       setIsGenerating(false);
     }

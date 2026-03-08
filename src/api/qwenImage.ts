@@ -9,6 +9,8 @@ export interface GenerateImageOptions {
   color?: string;
   features?: string;
   model?: string;
+  /** 上传的宠物照片 data URL，用于图生图参考 */
+  referenceImage?: string;
 }
 
 /**
@@ -21,7 +23,15 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify(options),
+      body: JSON.stringify({
+        breedName: options.breedName,
+        species: options.species,
+        style: options.style,
+        color: options.color,
+        features: options.features,
+        model: options.model,
+        referenceImage: options.referenceImage,
+      }),
     });
 
     if (!res.ok) {
