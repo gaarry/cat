@@ -1,5 +1,5 @@
 /**
- * 图像生成 API (通过 Vercel 代理)
+ * 图像生成 API (支持多 provider)
  */
 
 export interface GenerateImageOptions {
@@ -10,6 +10,7 @@ export interface GenerateImageOptions {
   features?: string;
   model?: string;
   referenceImage?: string;
+  provider?: string;
 }
 
 /**
@@ -33,12 +34,14 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300
 }
 
 /**
- * 调用本地代理生成图像
+ * 调用图像生成 API
  */
 export async function generatePetImageQwen(options: GenerateImageOptions): Promise<string | null> {
+  const provider = options.provider || 'qwen';
+  const apiEndpoint = provider === 'burnhair' ? '/api/generateBurnhair' : '/api/generate';
+  
   try {
-    // 线上 Vercel 冷启动 + 生成耗时，超时 5 分钟
-    const res = await fetchWithTimeout('/api/generate', {
+    const res = await fetchWithTimeout(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -67,6 +70,6 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
   } catch (e) {
     const msg = e instanceof Error ? e.message : '网络错误';
     console.error('图像生成请求失败:', msg);
-    throw new Error(msg); // 抛出错误，让调用方捕获
+    throw new Error(msg);
   }
 }

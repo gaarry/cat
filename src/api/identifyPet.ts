@@ -1,5 +1,5 @@
 /**
- * 宠物品种识别 API (通过代理)
+ * 宠物品种识别 API (支持多 provider)
  */
 
 export interface PetBreedResult {
@@ -31,18 +31,23 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300
 }
 
 /**
- * 调用本地代理识别宠物图片
+ * 调用识别 API
  */
-export async function identifyPetFromImage(imageUrl: string, model: string = 'qwen2.5-vl-32b-instruct'): Promise<PetBreedResult | null> {
+export async function identifyPetFromImage(
+  imageUrl: string, 
+  model: string = 'qwen2.5-vl-32b-instruct',
+  provider: string = 'qwen'
+): Promise<PetBreedResult | null> {
+  const apiEndpoint = provider === 'burnhair' ? '/api/identifyBurnhair' : '/api/identify';
+  
   try {
-    // 线上 Vercel 冷启动可能 30s～2min，超时设 2 分钟避免误判
-    const res = await fetchWithTimeout('/api/identify', {
+    const res = await fetchWithTimeout(apiEndpoint, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ imageUrl, model }),
-    }, 120000);
+    }, 300000);
 
     if (!res.ok) {
       const errText = await res.text();
@@ -62,6 +67,6 @@ export async function identifyPetFromImage(imageUrl: string, model: string = 'qw
   } catch (e) {
     const msg = e instanceof Error ? e.message : '网络错误';
     console.error('识别请求失败:', msg);
-    throw new Error(msg); // 抛出错误，让调用方捕获
+    throw new Error(msg);
   }
 }

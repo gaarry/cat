@@ -10,15 +10,21 @@ import { Heart, ChevronRight, Loader2, Sparkles, Settings, RefreshCw } from 'luc
 
 // 图像生成模型选项
 export const IMAGE_GEN_MODELS = [
-  { id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro', desc: '最新最强生成' },
-  { id: 'qwen-image-2.0', name: 'Qwen Image 2.0', desc: '平衡性价比' },
-  { id: 'qwen-image-max', name: 'Qwen Image Max', desc: '最高质量' },
+  // Qwen 模型
+  { id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro', desc: '最新最强生成', provider: 'qwen' },
+  { id: 'qwen-image-2.0', name: 'Qwen Image 2.0', desc: '平衡性价比', provider: 'qwen' },
+  { id: 'qwen-image-max', name: 'Qwen Image Max', desc: '最高质量', provider: 'qwen' },
+  // burn.hair 模型 (DALL-E 3)
+  { id: 'dall-e-3', name: 'DALL-E 3', desc: 'OpenAI DALL-E 3', provider: 'burnhair' },
 ];
 
 // 视觉识别模型选项  
 export const VISION_MODELS = [
-  { id: 'qwen2.5-vl-32b-instruct', name: 'Qwen2.5 VL 32B', desc: '视觉理解强' },
-  { id: 'qwen-plus', name: 'Qwen Plus', desc: '综合能力强' },
+  // Qwen 模型
+  { id: 'qwen2.5-vl-32b-instruct', name: 'Qwen2.5 VL 32B', desc: '视觉理解强', provider: 'qwen' },
+  { id: 'qwen-plus', name: 'Qwen Plus', desc: '综合能力强', provider: 'qwen' },
+  // burn.hair 模型 (GPT-4o)
+  { id: 'gpt-4o', name: 'GPT-4o', desc: 'OpenAI 视觉模型', provider: 'burnhair' },
 ];
 
 // 风格选项
@@ -102,7 +108,9 @@ export function OnboardingPage() {
     setIdentifyError(null);
 
     try {
-      const result = await identifyPetFromImage(photoDataUrl, visionModel);
+      // 获取 provider
+      const visionProvider = VISION_MODELS.find(m => m.id === visionModel)?.provider || 'qwen';
+      const result = await identifyPetFromImage(photoDataUrl, visionModel, visionProvider);
 
       if (result) {
         const petSpecies = result.species.toLowerCase();
@@ -143,6 +151,7 @@ export function OnboardingPage() {
       const breedObj = breeds.find(b => b.id === breedId);
       if (!breedObj) return;
       
+      const imageProvider = IMAGE_GEN_MODELS.find(m => m.id === imageModel)?.provider || 'qwen';
       const imageUrl = await generatePetImageQwen({
         breedName: breedObj.name,
         species,
@@ -151,6 +160,7 @@ export function OnboardingPage() {
         features: features || undefined,
         model: imageModel,
         referenceImage: photoDataUrl || undefined, // 上传的宠物照片，供生成时参考
+        provider: imageProvider,
       });
       
       setGeneratedImageUrl(imageUrl || photoDataUrl);
