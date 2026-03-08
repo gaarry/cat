@@ -15,7 +15,7 @@ export interface GenerateImageOptions {
 /**
  * 带超时的 fetch
  */
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = 20000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   
@@ -43,7 +43,7 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(options),
-    }, 60000); // 生成图片需要更长时间
+    }, 300000); // 生成图片需要更长时间 (5分钟)
 
     if (!res.ok) {
       const errText = await res.text();

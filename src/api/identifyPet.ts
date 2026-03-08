@@ -13,7 +13,7 @@ export interface PetBreedResult {
 /**
  * 带超时的 fetch
  */
-async function fetchWithTimeout(url: string, options: RequestInit, timeout = 20000): Promise<Response> {
+async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300000): Promise<Response> {
   const controller = new AbortController();
   const id = setTimeout(() => controller.abort(), timeout);
   
