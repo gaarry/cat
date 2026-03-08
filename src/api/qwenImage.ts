@@ -37,13 +37,14 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300
  */
 export async function generatePetImageQwen(options: GenerateImageOptions): Promise<string | null> {
   try {
+    // 线上 Vercel 冷启动 + 生成耗时，超时 5 分钟
     const res = await fetchWithTimeout('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify(options),
-    }, 300000); // 生成图片需要更长时间 (5分钟)
+    }, 300000);
 
     if (!res.ok) {
       const errText = await res.text();

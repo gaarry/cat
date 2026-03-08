@@ -35,13 +35,14 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300
  */
 export async function identifyPetFromImage(imageUrl: string, model: string = 'qwen2.5-vl-32b-instruct'): Promise<PetBreedResult | null> {
   try {
+    // 线上 Vercel 冷启动可能 30s～2min，超时设 2 分钟避免误判
     const res = await fetchWithTimeout('/api/identify', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
       body: JSON.stringify({ imageUrl, model }),
-    }, 25000);
+    }, 120000);
 
     if (!res.ok) {
       const errText = await res.text();
