@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoUpload } from '../components/PhotoUpload';
 import { breeds, speciesLabels } from '../data/breeds';
@@ -207,6 +207,13 @@ export function OnboardingPage() {
 
   const canIdentify = photoDataUrl && !isIdentifying;
   const canFinish = petName.trim() || breedName || breed?.name;
+
+  // 进入生成步骤时自动触发
+  useEffect(() => {
+    if (step === 'generate' && !generatedImageUrl) {
+      handleGenerateImage();
+    }
+  }, [step]);
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
