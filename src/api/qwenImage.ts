@@ -9,8 +9,27 @@ export interface GenerateImageOptions {
   color?: string;
   features?: string;
   model?: string;
-  /** 上传的宠物照片 data URL，用于图生图参考 */
   referenceImage?: string;
+}
+
+/**
+ * 带超时的 fetch
+ */
+async function fetchWithTimeout(url: string, options: RequestInit, timeout = 20000): Promise<Response> {
+  const controller = new AbortController();
+  const id = setTimeout(() => controller.abort(), timeout);
+  
+  try {
+    const res = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return res;
+  } catch (e) {
+    clearTimeout(id);
+    if (e instanceof Error && e.name === 'AbortError') {
+      throw new Error('请求超时，请检查网络后重试');
+    }
+    throw e;
+  }
 }
 
 /**
@@ -18,25 +37,18 @@ export interface GenerateImageOptions {
  */
 export async function generatePetImageQwen(options: GenerateImageOptions): Promise<string | null> {
   try {
-    const res = await fetch('/api/generate', {
+    const res = await fetchWithTimeout('/api/generate', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({
-        breedName: options.breedName,
-        species: options.species,
-        style: options.style,
-        color: options.color,
-        features: options.features,
-        model: options.model,
-        referenceImage: options.referenceImage,
-      }),
-    });
+      body: JSON.stringify(options),
+    }, 60000); // 生成图片需要更长时间
 
     if (!res.ok) {
-      console.error('图像生成 API 错误', res.status, await res.text());
-      return null;
+      const errText = await res.text();
+      console.error('图像生成 API 错误', res.status, errText);
+      throw new Error(`生成失败 (${res.status})，请重试`);
     }
 
     const data = await res.json();
@@ -47,11 +59,13 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
     
     if (data.error) {
       console.error('图像生成业务错误', data.error);
+      throw new Error(data.error || '生成失败');
     }
     
     return null;
   } catch (e) {
-    console.error('图像生成请求失败:', e);
-    return null;
+    const msg = e instanceof Error ? e.message : '网络错误';
+    console.error('图像生成请求失败:', msg);
+    throw new Error(msg); // 抛出错误，让调用方捕获
   }
 }

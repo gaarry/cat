@@ -125,8 +125,9 @@ export function OnboardingPage() {
         setFeatures(result.features || '');
       }
     } catch (e) {
-      console.error('识别失败:', e);
-      setIdentifyError('识别失败，请重试或手动选择宠物信息');
+      const msg = e instanceof Error ? e.message : '识别失败，请重试';
+      console.error('识别失败:', msg);
+      setIdentifyError(msg);
     } finally {
       setIsIdentifying(false);
     }
@@ -155,8 +156,9 @@ export function OnboardingPage() {
       setGeneratedImageUrl(imageUrl || photoDataUrl);
       setStepIndex(3); // 直接进入「起名」步骤展示结果，避免停在加载页
     } catch (e) {
-      console.error('生成失败:', e);
-      setGenerateError('生成失败，将使用原图作为宠物照片');
+      const msg = e instanceof Error ? e.message : '生成失败';
+      console.error('生成失败:', msg);
+      setGenerateError(`生成失败: ${msg}，将使用原图`);
       setGeneratedImageUrl(photoDataUrl);
       setStepIndex(3);
     } finally {
