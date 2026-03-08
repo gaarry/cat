@@ -117,15 +117,83 @@ async function localGenerate(body: Record<string, unknown>) {
   return { status: 500, data: { error: '生成失败', details: data } }
 }
 
-/** 本地开发时处理 /api/identify、/api/generate，避免 404（部署到 Vercel 时由 Vercel 执行 api/*.ts） */
+/** 与 api/generateBurnhair.ts 一致：burnhair DALL-E 3 图像生成，供本地开发 */
+async function localGenerateBurnhair(body: Record<string, unknown>) {
+  const apiKey = process.env.VITE_BURNHAIR_API_KEY || process.env.BURNHAIR_API_KEY
+  if (!apiKey) return { status: 500, data: { error: 'Missing API key (VITE_BURNHAIR_API_KEY)' } }
+  const { breedName, species, style, model } = body as Record<string, string>
+  let prompt = ''
+  switch (style) {
+    case 'ghibli': prompt = `A cute ${species} (${breedName}), portrait, Studio Ghibli style, hand-drawn anime, pastel colors, big eyes, friendly expression.`; break
+    case 'emoji': prompt = `A cute ${species} (${breedName}), 3D emoji avatar, colorful, playful, Apple Memoji style, round face.`; break
+    case 'anime': prompt = `A cute ${species} (${breedName}), anime style, Japanese manga, large eyes, vibrant colors, kawaii.`; break
+    case 'simple': prompt = `A cute ${species} (${breedName}), simple hand-drawn style, naive art, childlike drawing.`; break
+    default: prompt = `A photorealistic ${species} (${breedName}), professional photography, studio lighting, cute.`
+  }
+  const response = await fetch('https://cn-test.burn.hair/v1/images/generations', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model: model || 'dall-e-3',
+      prompt,
+      size: '1024x1024',
+      quality: 'standard',
+      n: 1,
+    }),
+  })
+  const data = (await response.json()) as Record<string, unknown>
+  const url = (data.data as Array<{ url?: string }>)?.[0]?.url
+  if (url) return { status: 200, data: { imageUrl: url } }
+  return { status: 500, data: { error: '生成失败', details: data } }
+}
+
+/** burnhair GPT-4o 视觉识别，与 api/identifyBurnhair.ts 一致，供本地开发 */
+async function localIdentifyBurnhair(body: Record<string, unknown>) {
+  const apiKey = process.env.VITE_BURNHAIR_API_KEY || process.env.BURNHAIR_API_KEY
+  if (!apiKey) return { status: 500, data: { error: 'Missing API key (VITE_BURNHAIR_API_KEY)' } }
+  const imageUrl = body.imageUrl as string | undefined
+  if (!imageUrl || typeof imageUrl !== 'string') return { status: 400, data: { error: 'Missing imageUrl' } }
+  const model = (body.model as string) || 'gpt-4o'
+  const prompt = `请仔细观察这张宠物照片，识别并返回 JSON，全部使用中文。
+
+要求：
+1. species：物种，中文即可，如：猫、狗、鹦鹉、兔子、猪
+2. breed：品种中文名，如：英国短毛猫、金毛寻回犬；若不确定可写最常见品种
+3. color：毛色/肤色的详细中文描述，至少 2～3 条，尽量具体
+4. features：外貌特征的详细中文描述，至少 3～5 条，越细致越好
+
+直接返回一个 JSON 对象，不要其他文字。格式示例：
+{"species":"猫","breed":"英国短毛猫","color":"蓝灰色，胸前与四爪有白色","features":"圆脸，大而圆的眼睛，短毛，体型敦实"}`
+  const response = await fetch('https://cn-test.burn.hair/v1/chat/completions', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+    body: JSON.stringify({
+      model,
+      messages: [
+        { role: 'user', content: [{ type: 'image_url', image_url: { url: imageUrl } }, { type: 'text', text: prompt }] },
+      ],
+    }),
+  })
+  const data = (await response.json()) as Record<string, unknown>
+  const content = (data?.choices as Array<{ message?: { content?: string } }>)?.[0]?.message?.content
+  if (content) {
+    const jsonMatch = content.match(/\{[\s\S]*\}/)
+    if (jsonMatch) return { status: 200, data: JSON.parse(jsonMatch[0]) }
+  }
+  return { status: 500, data: { error: '识别失败', details: data } }
+}
+
+/** 本地开发时处理 /api/identify、/api/identifyBurnhair、/api/generate、/api/generateBurnhair，避免 404 */
 function localApiPlugin() {
   return {
     name: 'local-api',
     configureServer(server: import('vite').ViteDevServer) {
       server.middlewares.use(async (req, res, next) => {
         const isIdentify = req.url === '/api/identify' && req.method === 'POST'
+        const isIdentifyBurnhair = req.url === '/api/identifyBurnhair' && req.method === 'POST'
         const isGenerate = req.url === '/api/generate' && req.method === 'POST'
-        if (!isIdentify && !isGenerate) return next()
+        const isGenerateBurnhair = req.url === '/api/generateBurnhair' && req.method === 'POST'
+        if (!isIdentify && !isIdentifyBurnhair && !isGenerate && !isGenerateBurnhair) return next()
 
         const maxBody = 10 * 1024 * 1024
         let body: Record<string, unknown>
@@ -143,7 +211,13 @@ function localApiPlugin() {
         }
 
         try {
-          const result = isIdentify ? await localIdentify(body) : await localGenerate(body)
+          const result = isIdentify
+            ? await localIdentify(body)
+            : isIdentifyBurnhair
+              ? await localIdentifyBurnhair(body)
+              : isGenerateBurnhair
+                ? await localGenerateBurnhair(body)
+                : await localGenerate(body)
           if (!res.writableEnded) sendJson(res, result.status, result.data)
         } catch (e) {
           if (!res.writableEnded) sendJson(res, 500, { error: (e as Error).message })

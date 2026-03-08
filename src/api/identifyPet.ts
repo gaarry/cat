@@ -31,15 +31,14 @@ async function fetchWithTimeout(url: string, options: RequestInit, timeout = 300
 }
 
 /**
- * 调用识别 API
+ * 调用识别 API：qwen 走 /api/identify，burnhair 走 /api/identifyBurnhair
  */
 export async function identifyPetFromImage(
-  imageUrl: string, 
+  imageUrl: string,
   model: string = 'qwen2.5-vl-32b-instruct',
   provider: string = 'qwen'
 ): Promise<PetBreedResult | null> {
-  const apiEndpoint = provider === 'burnhair' ? '/api/identifyBurnhair' : '/api/identify';
-  
+  const apiEndpoint = provider === 'burnhair' ? '/api/identifyBurnhair' : '/api/identify'
   try {
     const res = await fetchWithTimeout(apiEndpoint, {
       method: 'POST',
