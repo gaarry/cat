@@ -14,11 +14,11 @@ function getApiKey(): string {
 
 function buildPetImagePrompt(breedName: string, species: string): string {
   return (
-    `A cute ${species} (${breedName}), portrait, head and shoulders. ` +
-    `Studio Ghibli art style by Hayao Miyazaki: hand-drawn 2D anime, soft watercolor texture, pastel palette, warm dreamy lighting. ` +
-    `Big expressive eyes, gentle friendly expression, simple rounded shapes. ` +
-    `Illustrated character sheet style, no photo-realism, whimsical and heartwarming. ` +
-    `Clean background, soft gradient or subtle nature.`
+    `A cute ${species} (${breedName}) avatar, emoji style, ` +
+    `3D rendered character, colorful, flat design, minimalist, bold colors, ` +
+    `playful and cute, Apple Memoji aesthetic, big expressive eyes, ` +
+    `friendly smile, rounded shapes, white background, ` +
+    `digital avatar icon style, vibrant cheerful colors, high quality.`
   );
 }
 
