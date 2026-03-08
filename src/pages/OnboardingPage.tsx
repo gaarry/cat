@@ -20,11 +20,12 @@ export const IMAGE_GEN_MODELS = [
 
 // 视觉识别模型选项  
 export const VISION_MODELS = [
+  // burn.hair 模型 (GPT-4o) - 默认
+  { id: 'gpt-4o', name: 'GPT-4o', desc: 'OpenAI 视觉模型', provider: 'burnhair' },
+  { id: 'gpt-4o-mini', name: 'GPT-4o Mini', desc: '更快更便宜', provider: 'burnhair' },
   // Qwen 模型
   { id: 'qwen2.5-vl-32b-instruct', name: 'Qwen2.5 VL 32B', desc: '视觉理解强', provider: 'qwen' },
   { id: 'qwen-plus', name: 'Qwen Plus', desc: '综合能力强', provider: 'qwen' },
-  // burn.hair 模型 (GPT-4o)
-  { id: 'gpt-4o', name: 'GPT-4o', desc: 'OpenAI 视觉模型', provider: 'burnhair' },
 ];
 
 // 风格选项
@@ -63,8 +64,8 @@ export function OnboardingPage() {
   const step = STEPS[stepIndex];
   
   // 模型选择
-  const [imageModel, setImageModel] = useState('qwen-image-2.0-pro');
-  const [visionModel, setVisionModel] = useState('qwen2.5-vl-32b-instruct');
+  const [imageModel, setImageModel] = useState('dall-e-3');
+  const [visionModel, setVisionModel] = useState('gpt-4o');
   const [showSettings, setShowSettings] = useState(false);
   
   // 照片
