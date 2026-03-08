@@ -68,6 +68,10 @@ export function OnboardingPage() {
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   
+  // 错误提示
+  const [identifyError, setIdentifyError] = useState<string | null>(null);
+  const [generateError, setGenerateError] = useState<string | null>(null);
+  
   // 可编辑的宠物信息
   const [species, setSpecies] = useState<PetSpecies>('cat');
   const [breedId, setBreedId] = useState<string>('cat-british');
@@ -95,6 +99,7 @@ export function OnboardingPage() {
   const handleIdentify = async () => {
     if (!photoDataUrl) return;
     setIsIdentifying(true);
+    setIdentifyError(null);
 
     try {
       const result = await identifyPetFromImage(photoDataUrl, visionModel);
@@ -121,6 +126,7 @@ export function OnboardingPage() {
       }
     } catch (e) {
       console.error('识别失败:', e);
+      setIdentifyError('识别失败，请重试或手动选择宠物信息');
     } finally {
       setIsIdentifying(false);
     }
@@ -129,6 +135,7 @@ export function OnboardingPage() {
   // 生成图像
   const handleGenerate = async () => {
     setIsGenerating(true);
+    setGenerateError(null);
     setGeneratedImageUrl(null);
     
     try {
@@ -149,6 +156,7 @@ export function OnboardingPage() {
       setStepIndex(3); // 直接进入「起名」步骤展示结果，避免停在加载页
     } catch (e) {
       console.error('生成失败:', e);
+      setGenerateError('生成失败，将使用原图作为宠物照片');
       setGeneratedImageUrl(photoDataUrl);
       setStepIndex(3);
     } finally {
@@ -297,6 +305,13 @@ export function OnboardingPage() {
                       </>
                     )}
                   </button>
+                  
+                  {/* 识别错误提示 */}
+                  {identifyError && (
+                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
+                      {identifyError}
+                    </div>
+                  )}
                 </div>
               )}
             </motion.div>
@@ -423,6 +438,13 @@ export function OnboardingPage() {
                   </>
                 )}
               </button>
+              
+              {/* 生成错误提示 */}
+              {generateError && (
+                <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded-lg text-red-600 text-sm text-center">
+                  {generateError}
+                </div>
+              )}
             </motion.div>
           )}
 
