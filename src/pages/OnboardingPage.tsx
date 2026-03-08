@@ -57,7 +57,6 @@ export function OnboardingPage() {
   
   // 生成的图像
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
-  const [imageFromApi, setImageFromApi] = useState(false);
   
   // 名字
   const [petName, setPetName] = useState('');
@@ -134,16 +133,16 @@ export function OnboardingPage() {
         
         if (imageUrl) {
           setGeneratedImageUrl(imageUrl);
-          setImageFromApi(true);
+          
         } else {
           setGeneratedImageUrl(photoDataUrl);
-          setImageFromApi(false);
+          
         }
       }
     } catch (e) {
       console.error('创建失败:', e);
       setGeneratedImageUrl(photoDataUrl);
-      setImageFromApi(false);
+      
     } finally {
       setIsIdentifying(false);
       setGeneratingImage(false);
