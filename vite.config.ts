@@ -49,8 +49,8 @@ async function localIdentify(body: Record<string, unknown>) {
       messages: [{ role: 'user', content: [{ type: 'image_url', image_url: { url: imageUrl } }, { type: 'text', text: prompt }] }],
     }),
   })
-  const data = await response.json()
-  const content = data.choices?.[0]?.message?.content
+  const data = (await response.json()) as Record<string, unknown>
+  const content = (data?.choices as Array<{ message?: { content?: string } }>)?.[0]?.message?.content
   if (content) {
     const jsonMatch = content.match(/\{[\s\S]*\}/)
     if (jsonMatch) return { status: 200, data: JSON.parse(jsonMatch[0]) }
