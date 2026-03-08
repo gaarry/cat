@@ -38,7 +38,7 @@ export default async function handler(req, res) {
       return res.status(500).json({ error: 'Missing API key' });
     }
 
-    const contentWithImage = [{ text: prompt }];
+    const contentWithImage: { text: string; image?: string }[] = [{ text: prompt }];
     if (referenceImage && typeof referenceImage === 'string' && referenceImage.startsWith('data:image')) {
       contentWithImage.push({ image: referenceImage });
     }
