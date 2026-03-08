@@ -12,20 +12,63 @@ function getApiKey(): string {
   return import.meta.env.VITE_BURNHAIR_API_KEY ?? '';
 }
 
-function buildPetImagePrompt(breedName: string, species: string): string {
-  return (
-    `A photorealistic ${species} (${breedName}), high quality professional photography, ` +
-    `studio lighting, shallow depth of field, extremely detailed fur texture, ` +
-    `natural realistic colors, looking directly at camera, friendly expression, ` +
-    `crisp clear eyes, clean solid background, ` +
-    `photo quality, realistic, life-like, 8K professional portrait, ` +
-    `cute and endearing, round face, adorable.`
-  );
+type ImageStyle = 'ghibli' | 'emoji' | 'realistic' | 'anime' | 'simple';
+
+function buildPetImagePrompt(breedName: string, species: string, style: ImageStyle): string {
+  switch (style) {
+    case 'ghibli':
+      return (
+        `A cute ${species} (${breedName}), portrait, head and shoulders. ` +
+        `Studio Ghibli art style by Hayao Miyazaki: hand-drawn 2D anime, soft watercolor texture, pastel palette, warm dreamy lighting. ` +
+        `Big expressive eyes, gentle friendly expression, simple rounded shapes. ` +
+        `Illustrated character sheet style, no photo-realism, whimsical and heartwarming. ` +
+        `Clean background, soft gradient or subtle nature.`
+      );
+    case 'emoji':
+      return (
+        `A cute ${species} (${breedName}) avatar, emoji style, ` +
+        `3D rendered character, colorful, flat design, minimalist, bold colors, ` +
+        `playful and cute, Apple Memoji aesthetic, big expressive eyes, ` +
+        `friendly smile, rounded shapes, white background, ` +
+        `digital avatar icon style, vibrant cheerful colors, high quality.`
+      );
+    case 'realistic':
+      return (
+        `A photorealistic ${species} (${breedName}), high quality professional photography, ` +
+        `studio lighting, shallow depth of field, extremely detailed fur texture, ` +
+        `natural realistic colors, looking directly at camera, friendly expression, ` +
+        `crisp clear eyes, clean solid background, ` +
+        `photo quality, realistic, life-like, 8K professional portrait, ` +
+        `cute and endearing, round face, adorable.`
+      );
+    case 'anime':
+      return (
+        `A cute ${species} (${breedName}), anime style, Japanese manga, ` +
+        `large expressive eyes with highlights, intricate details, vibrant colors, ` +
+        `clean linework, anime character portrait, shiny hair, ` +
+        `colorful background, kawaii aesthetic, polished digital art, ` +
+        `head and shoulders composition, cheerful expression.`
+      );
+    case 'simple':
+      return (
+        `A cute ${species} (${breedName}), simple hand-drawn style, ` +
+        `naive art, primitive painting, childlike drawing, warm and friendly, ` +
+        `soft edges, gentle colors, innocent expression, ` +
+        `paper texture background, folk art style, ` +
+        `whimsical and endearing, simple geometric shapes.`
+      );
+    default:
+      return (
+        `A cute ${species} (${breedName}), ${style} style, ` +
+        `high quality digital art, portrait, head and shoulders.`
+      );
+  }
 }
 
 export interface GenerateImageOptions {
   breedName: string;
   species: string;
+  style?: ImageStyle;
 }
 
 /**
@@ -35,7 +78,8 @@ export async function generatePetImageBurnHair(options: GenerateImageOptions): P
   const apiKey = getApiKey();
   if (!apiKey) return null;
 
-  const prompt = buildPetImagePrompt(options.breedName, options.species);
+  const style: ImageStyle = options.style || 'realistic';
+  const prompt = buildPetImagePrompt(options.breedName, options.species, style);
 
   const res = await fetch(IMAGE_URL, {
     method: 'POST',

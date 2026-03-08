@@ -1,6 +1,9 @@
 /** 宠物物种 */
 export type PetSpecies = 'cat' | 'dog' | 'parrot' | 'rabbit' | 'pig';
 
+/** 图像风格 */
+export type ImageStyle = 'ghibli' | 'emoji' | 'realistic' | 'anime' | 'simple';
+
 /** 品种信息 */
 export interface Breed {
   id: string;
@@ -34,9 +37,11 @@ export interface PetProfile {
   breedName: string;
   personalityIds: string[];
   voiceStyleId: string;
+  /** 图像风格 */
+  style: ImageStyle;
   /** 用户上传的原始照片 URL（本地或上传后） */
   photoUrl?: string;
-  /** 生成后的宫崎骏风格头像/立绘 URL */
+  /** 生成后的头像/立绘 URL */
   generatedImageUrl?: string;
   name?: string;
   createdAt: number;

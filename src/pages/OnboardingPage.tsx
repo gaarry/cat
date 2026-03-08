@@ -4,13 +4,14 @@ import { PhotoUpload } from '../components/PhotoUpload';
 import { BreedSelector } from '../components/BreedSelector';
 import { PersonalitySelector } from '../components/PersonalitySelector';
 import { VoiceStyleSelector } from '../components/VoiceStyleSelector';
+import { StyleSelector } from '../components/StyleSelector';
 import { breeds } from '../data/breeds';
 import { usePetStore } from '../store/usePetStore';
-import type { PetSpecies, PetProfile } from '../types/pet';
+import type { PetSpecies, PetProfile, ImageStyle } from '../types/pet';
 import { generatePetImageBurnHair } from '../api/burnHairImage';
 import { Heart, ChevronRight, Loader2 } from 'lucide-react';
 
-const STEPS = ['photo', 'breed', 'personality', 'voice', 'generate', 'name'] as const;
+const STEPS = ['photo', 'breed', 'personality', 'style', 'voice', 'generate', 'name'] as const;
 
 export function OnboardingPage() {
   const setPet = usePetStore((s) => s.setPet);
@@ -21,6 +22,7 @@ export function OnboardingPage() {
   const [species, setSpecies] = useState<PetSpecies | null>(null);
   const [breedId, setBreedId] = useState<string | null>(null);
   const [personalityIds, setPersonalityIds] = useState<string[]>([]);
+  const [styleId, setStyleId] = useState<ImageStyle>('realistic');
   const [voiceStyleId, setVoiceStyleId] = useState<string | null>(null);
   const [generatedImageUrl, setGeneratedImageUrl] = useState<string | null>(null);
   const [imageFromApi, setImageFromApi] = useState(false);
@@ -37,6 +39,7 @@ export function OnboardingPage() {
     (step === 'photo' && photoDataUrl) ||
     (step === 'breed' && species && breedId) ||
     (step === 'personality' && personalityIds.length > 0) ||
+    (step === 'style' && styleId) ||
     (step === 'voice' && voiceStyleId) ||
     step === 'generate' ||
     (step === 'name' && petName.trim());
@@ -48,6 +51,7 @@ export function OnboardingPage() {
       const url = await generatePetImageBurnHair({
         breedName: breed.name,
         species,
+        style: styleId,
       });
       if (url) {
         setGeneratedImageUrl(url);
@@ -73,6 +77,7 @@ export function OnboardingPage() {
       breedId: breedId!,
       breedName: breed!.name,
       personalityIds,
+      style: styleId,
       voiceStyleId: voiceStyleId!,
       photoUrl: photoDataUrl || undefined,
       generatedImageUrl: generatedImageUrl || undefined,
@@ -140,6 +145,17 @@ export function OnboardingPage() {
               exit={{ opacity: 0, x: -10 }}
             >
               <PersonalitySelector selectedIds={personalityIds} onChange={setPersonalityIds} />
+            </motion.div>
+          )}
+          {step === 'style' && (
+            <motion.div
+              key="style"
+              initial={{ opacity: 0, x: 10 }}
+              animate={{ opacity: 1, x: 0 }}
+              exit={{ opacity: 0, x: -10 }}
+            >
+              <p className="text-sm text-amber-800 mb-3">选择生成图像的风格</p>
+              <StyleSelector selectedStyleId={styleId} onSelect={setStyleId} />
             </motion.div>
           )}
           {step === 'voice' && (
