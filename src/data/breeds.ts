@@ -44,6 +44,7 @@ export const speciesLabels: Record<string, string> = {
   parrot: '鹦鹉',
   rabbit: '兔子',
   pig: '小猪',
+  other: '其他',
 };
 
 export function getBreedsBySpecies(species: string): Breed[] {

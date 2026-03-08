@@ -1,5 +1,5 @@
 /** 宠物物种 */
-export type PetSpecies = 'cat' | 'dog' | 'parrot' | 'rabbit' | 'pig';
+export type PetSpecies = 'cat' | 'dog' | 'parrot' | 'rabbit' | 'pig' | 'other';
 
 /** 图像风格 */
 export type ImageStyle = 'ghibli' | 'emoji' | 'realistic' | 'anime' | 'simple';
@@ -33,8 +33,12 @@ export interface VoiceStyle {
 export interface PetProfile {
   id: string;
   species: PetSpecies;
+  /** 模型识别的原始物种（用于保真与后续分析） */
+  speciesRaw?: string;
   breedId: string;
   breedName: string;
+  /** 模型识别的原始品种文本 */
+  breedRaw?: string;
   personalityIds: string[];
   voiceStyleId: string;
   /** 图像风格 */

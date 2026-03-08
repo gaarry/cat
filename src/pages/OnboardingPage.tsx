@@ -41,6 +41,16 @@ const STYLE_OPTIONS: { id: ImageStyle; name: string; desc: string }[] = [
 // 步骤
 const STEPS = ['photo', 'identify', 'generate', 'name'] as const;
 
+function mapSpeciesFromModel(rawSpecies: string): PetSpecies {
+  const s = rawSpecies.trim().toLowerCase();
+  if (s.includes('cat') || s.includes('猫')) return 'cat';
+  if (s.includes('dog') || s.includes('犬') || s.includes('狗')) return 'dog';
+  if (s.includes('rabbit') || s.includes('bunny') || s.includes('兔')) return 'rabbit';
+  if (s.includes('parrot') || s.includes('bird') || s.includes('鹦鹉') || s.includes('鸟')) return 'parrot';
+  if (s.includes('pig') || s.includes('猪')) return 'pig';
+  return 'other';
+}
+
 // 从品种名匹配（支持中文名或英文名）
 function matchBreed(breedName: string, species: string): { id: string; name: string } | null {
   const trim = breedName.trim();
@@ -89,6 +99,7 @@ export function OnboardingPage() {
   
   // 可编辑的宠物信息
   const [species, setSpecies] = useState<PetSpecies>('cat');
+  const [speciesRaw, setSpeciesRaw] = useState<string>('猫');
   const [breedId, setBreedId] = useState<string>('cat-british');
   const [breedName, setBreedName] = useState<string>('英国短毛猫');
   const [color, setColor] = useState<string>('');
@@ -104,6 +115,7 @@ export function OnboardingPage() {
   const [petName, setPetName] = useState('');
 
   const breed = breeds.find((b) => b.id === breedId);
+  const suggestedBreeds = species === 'other' ? breeds : breeds.filter((b) => b.species === species);
 
   const handlePhotoChange = useCallback((_file: File | null, url?: string) => {
     setPhotoDataUrl(url ?? null);
@@ -122,19 +134,15 @@ export function OnboardingPage() {
       const result = await identifyPetFromImage(photoDataUrl, visionModel, visionProvider);
 
       if (result) {
-        const petSpecies = result.species.toLowerCase();
-        let mappedSpecies: PetSpecies = 'cat';
-        if (petSpecies.includes('dog') || petSpecies.includes('狗')) mappedSpecies = 'dog';
-        else if (petSpecies.includes('rabbit') || petSpecies.includes('兔')) mappedSpecies = 'rabbit';
-        else if (petSpecies.includes('parrot') || petSpecies.includes('鹦鹉')) mappedSpecies = 'parrot';
-        else if (petSpecies.includes('pig') || petSpecies.includes('猪')) mappedSpecies = 'pig';
-
-        const matched = matchBreed(result.breed, mappedSpecies);
-        const defaultBreed = breeds.find((b) => b.species === mappedSpecies);
-        const breedIdNext = matched ? matched.id : defaultBreed?.id ?? breedId;
-        const breedNameNext = matched ? matched.name : defaultBreed?.name ?? breedName;
+        const speciesRawNext = result.species?.trim() || '未知物种';
+        const mappedSpecies = mapSpeciesFromModel(result.species);
+        const matched = mappedSpecies === 'other' ? null : matchBreed(result.breed, mappedSpecies);
+        const fallbackBreedName = result.breed?.trim() || breedName || '未知品种';
+        const breedIdNext = matched?.id || `${mappedSpecies}-custom`;
+        const breedNameNext = fallbackBreedName;
 
         setStepIndex(1);
+        setSpeciesRaw(speciesRawNext);
         setSpecies(mappedSpecies);
         setBreedId(breedIdNext);
         setBreedName(breedNameNext);
@@ -157,13 +165,13 @@ export function OnboardingPage() {
     setGeneratedImageUrl(null);
     
     try {
-      const breedObj = breeds.find(b => b.id === breedId);
-      if (!breedObj) return;
+      const breedNameForGen = breedName || breed?.name || '未知品种';
       
       const imageProvider = IMAGE_GEN_MODELS.find(m => m.id === imageModel)?.provider || 'qwen';
+      const speciesForGen = speciesRaw?.trim() || species || 'pet';
       const imageUrl = await generatePetImageQwen({
-        breedName: breedObj.name,
-        species,
+        breedName: breedNameForGen,
+        species: speciesForGen,
         style: styleId,
         color: color || undefined,
         features: features || undefined,
@@ -188,18 +196,23 @@ export function OnboardingPage() {
   // 完成
   const handleFinish = () => {
     const breedObj = breeds.find(b => b.id === breedId);
+    const matched = species === 'other' ? null : matchBreed(breedName, species);
+    const breedIdForSave = matched?.id || breedId || `${species}-custom`;
+    const breedNameForSave = breedName || matched?.name || breedObj?.name || '未知品种';
     
     const pet: PetProfile = {
       id: crypto.randomUUID(),
       species,
-      breedId,
-      breedName: breedObj?.name || breedName,
+      speciesRaw: speciesRaw || undefined,
+      breedId: breedIdForSave,
+      breedName: breedNameForSave,
+      breedRaw: breedName || undefined,
       personalityIds,
       style: styleId,
       voiceStyleId: voiceStyleId!,
       photoUrl: photoDataUrl || undefined,
       generatedImageUrl: generatedImageUrl || undefined,
-      name: petName.trim() || breedObj?.name || breedName || '小可爱',
+      name: petName.trim() || breedNameForSave || '小可爱',
       createdAt: Date.now(),
     };
     setPet(pet);
@@ -216,6 +229,7 @@ export function OnboardingPage() {
       case 'parrot': return '🦜';
       case 'rabbit': return '🐰';
       case 'pig': return '🐷';
+      case 'other': return '🐾';
       default: return '🐾';
     }
   };
@@ -354,46 +368,56 @@ export function OnboardingPage() {
               
               {/* 可编辑的信息表单 */}
               <div className="bg-purple-50 rounded-xl p-3 space-y-2">
-                {/* 种类 */}
+                {/* 种类（默认使用模型识别结果，可手动调整；下拉仅提供建议） */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 w-12">种类</span>
-                  <select
-                    value={species}
+                  <input
+                    type="text"
+                    list="species-options"
+                    value={speciesRaw}
                     onChange={(e) => {
-                      const newSpecies = e.target.value as PetSpecies;
-                      setSpecies(newSpecies);
-                      const defaultBreed = breeds.find(b => b.species === newSpecies);
-                      if (defaultBreed) {
-                        setBreedId(defaultBreed.id);
-                        setBreedName(defaultBreed.name);
-                      }
+                      const raw = e.target.value;
+                      const mapped = mapSpeciesFromModel(raw);
+                      setSpeciesRaw(raw);
+                      setSpecies(mapped);
+                      setBreedId(`${mapped}-custom`);
+                      if (!breedName.trim()) setBreedName('未知品种');
                     }}
+                    placeholder="默认采用模型识别结果，可手动修改"
                     className="flex-1 text-sm px-2 py-1 rounded border"
-                  >
-                    <option value="cat">🐱 猫咪</option>
-                    <option value="dog">🐕 狗狗</option>
-                    <option value="parrot">🦜 鹦鹉</option>
-                    <option value="rabbit">🐰 兔子</option>
-                    <option value="pig">🐷 小猪</option>
-                  </select>
+                  />
+                  <datalist id="species-options">
+                    <option value="猫" />
+                    <option value="狗" />
+                    <option value="鹦鹉" />
+                    <option value="兔子" />
+                    <option value="猪" />
+                    <option value="狐狸" />
+                    <option value="马" />
+                    <option value="仓鼠" />
+                    <option value="乌龟" />
+                  </datalist>
                 </div>
                 
-                {/* 品种 */}
+                {/* 品种（默认使用模型识别结果，可手动调整） */}
                 <div className="flex items-center gap-2">
                   <span className="text-sm text-gray-600 w-12">品种</span>
-                  <select
-                    value={breedId}
+                  <input
+                    type="text"
+                    list="breed-options"
+                    value={breedName}
                     onChange={(e) => {
-                      const b = breeds.find(b => b.id === e.target.value);
-                      setBreedId(e.target.value);
-                      setBreedName(b?.name || '');
+                      setBreedId(`${species}-custom`);
+                      setBreedName(e.target.value);
                     }}
+                    placeholder="默认采用模型识别结果，可手动修改"
                     className="flex-1 text-sm px-2 py-1 rounded border"
-                  >
-                    {breeds.filter(b => b.species === species).map(b => (
-                      <option key={b.id} value={b.id}>{b.name}</option>
+                  />
+                  <datalist id="breed-options">
+                    {suggestedBreeds.map((b) => (
+                      <option key={b.id} value={b.name} />
                     ))}
-                  </select>
+                  </datalist>
                 </div>
                 
                 {/* 毛色 */}
