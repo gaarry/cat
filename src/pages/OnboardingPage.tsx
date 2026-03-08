@@ -71,9 +71,9 @@ export function OnboardingPage() {
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEPS[stepIndex];
   
-  // 模型选择（默认千问：图像生成 Qwen Image 2.0 Pro，识别 Qwen2.5 VL 32B）
+  // 模型选择（默认千问：图像生成 Qwen Image 2.0 Pro，识别 Qwen 3.5 Plus）
   const [imageModel, setImageModel] = useState('qwen-image-2.0-pro');
-  const [visionModel, setVisionModel] = useState('qwen2.5-vl-32b-instruct');
+  const [visionModel, setVisionModel] = useState('qwen3.5-plus');
   const [showSettings, setShowSettings] = useState(false);
   
   // 照片
