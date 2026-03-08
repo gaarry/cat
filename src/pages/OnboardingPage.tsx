@@ -328,34 +328,22 @@ export function OnboardingPage() {
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="space-y-4"
+              className="text-center space-y-4"
             >
-              <div className="text-center">
-                <Sparkles className="text-purple-500 mx-auto mb-2" size={32} />
-                <h3 className="text-lg font-medium text-purple-700">AI 识别结果</h3>
+              <div>
+                <Sparkles className="text-purple-500 mx-auto mb-2" size={40} />
+                <h3 className="text-lg font-medium text-purple-700">已识别到你的宠物</h3>
               </div>
               
-              <div className="bg-purple-50 rounded-xl p-4 space-y-2">
-                <div className="flex justify-between">
-                  <span className="text-gray-600">种类</span>
-                  <span className="font-medium">{identifiedInfo.species}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-600">品种</span>
-                  <span className="font-medium">{identifiedInfo.breedName}</span>
-                </div>
-                {identifiedInfo.color && (
-                  <div className="flex justify-between">
-                    <span className="text-gray-600">毛色</span>
-                    <span className="font-medium">{identifiedInfo.color}</span>
-                  </div>
-                )}
-                {identifiedInfo.features && (
-                  <div className="pt-2 border-t border-purple-200">
-                    <span className="text-gray-600 text-sm">特征</span>
-                    <p className="text-gray-800">{identifiedInfo.features}</p>
-                  </div>
-                )}
+              <div className="bg-purple-50 rounded-xl py-6 px-4">
+                <div className="text-3xl mb-2">{
+                  identifiedInfo.species === '猫咪' ? '🐱' : 
+                  identifiedInfo.species === '狗狗' ? '🐕' : 
+                  identifiedInfo.species === '鹦鹉' ? '🦜' : 
+                  identifiedInfo.species === '兔子' ? '🐰' : '🐷'
+                }</div>
+                <div className="text-xl font-bold text-purple-800">{identifiedInfo.breedName}</div>
+                <div className="text-sm text-purple-600 mt-1">一只可爱的{identifiedInfo.species}</div>
               </div>
               
               <button
