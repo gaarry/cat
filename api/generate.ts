@@ -9,21 +9,31 @@ export const config = {
 
 /** 宠物信息 + 风格 拼成完整描述，用于 prompt */
 function buildPetStylePrompt(style, species, breedName, color, features) {
-  const petDesc = [species, breedName].filter(Boolean).join(' ');
-  const extra = [color, features].filter(Boolean).join(', ');
-  const base = extra ? `A cute ${petDesc}, ${extra}.` : `A cute ${petDesc}.`;
+  const petDesc = [species, breedName].filter(Boolean).join(' ').trim();
+  const appearance = [color, features].filter(Boolean).join('; ').trim();
+  const identityAnchor = [
+    `Primary subject: one ${petDesc || 'pet'}.`,
+    appearance ? `Appearance cues from analysis: ${appearance}.` : '',
+    'Use the uploaded reference image as the identity anchor.',
+    'Keep species, face shape, ear shape, eye color, nose color, coat color and markings, body proportions, and distinctive marks consistent with the reference.',
+    'Do not replace the pet with a different animal and do not change key markings.',
+  ]
+    .filter(Boolean)
+    .join(' ');
+
+  const quality = 'High detail, clean composition, natural anatomy, soft cinematic lighting, single subject, centered portrait, no text, no watermark, no logo.';
 
   switch (style) {
     case 'ghibli':
-      return `${base} Portrait, Studio Ghibli style, hand-drawn anime, pastel colors, big eyes, friendly expression.`;
+      return `${identityAnchor} Please convert this image into an anime-style illustration inspired by the visual aesthetics of Studio Ghibli. Maintain the original composition and key elements, but reimagine them with Ghibli-style features: soft painterly textures, warm and natural color palettes, detailed backgrounds, and expressive character design. Aim for a whimsical and nostalgic atmosphere with magical realism, similar to classic Ghibli films. ${quality}`;
     case 'emoji':
-      return `${base} 3D emoji avatar, colorful, playful, Apple Memoji style, round face.`;
+      return `${identityAnchor} Please convert this image into a premium 3D emoji-style portrait. Maintain the original composition and key identity traits, while reimagining the pet with rounded geometry, glossy materials, smooth soft shadows, bright but balanced colors, and a clean minimal background. Keep the expression friendly, playful, and instantly readable like a polished avatar sticker. ${quality}`;
     case 'anime':
-      return `${base} Anime style, Japanese manga, large eyes, vibrant colors, kawaii.`;
+      return `${identityAnchor} Please convert this image into a high-quality Japanese anime illustration. Maintain the original composition and key features, then apply crisp line art, layered cel-shading with subtle gradients, vibrant cinematic color design, expressive eyes, and detailed fur rendering. The final image should feel like a modern anime key visual while preserving the pet's real identity. ${quality}`;
     case 'simple':
-      return `${base} Simple hand-drawn style, naive art, childlike drawing.`;
+      return `${identityAnchor} Please convert this image into a minimalist hand-drawn illustration. Maintain the original composition and key identity traits, then simplify forms into clean outlines, soft flat colors, light paper texture, and an uncluttered background. Keep a warm, gentle, storybook-like mood with clear silhouette readability. ${quality}`;
     default:
-      return `${base} Photorealistic, professional photography, studio lighting, cute.`;
+      return `${identityAnchor} Please convert this image into a photorealistic cinematic pet portrait. Maintain the original composition and key identity traits, with realistic fur strands, accurate colors and markings, natural anatomy, and subtle facial micro-details. Use an 85mm lens look, shallow depth of field, soft studio lighting, and professional color grading for a premium editorial finish. ${quality}`;
   }
 }
 

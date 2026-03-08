@@ -40,16 +40,32 @@ async function localIdentify(body: Record<string, unknown>) {
   const imageUrl = body.imageUrl as string | undefined
   if (!imageUrl || typeof imageUrl !== 'string') return { status: 400, data: { error: 'Missing imageUrl' } }
   const model = (body.model as string) || 'qwen2.5-vl-32b-instruct'
-  const prompt = `请仔细观察这张宠物照片，识别并返回 JSON，全部使用中文。
+  const prompt = `你是宠物视觉识别助手。请基于图片中“可见信息”做结构化识别，并严格输出 JSON（不要 markdown、不要解释、不要多余文本）。
 
-要求：
-1. species：物种，中文即可，如：猫、狗、鹦鹉、兔子、猪
-2. breed：品种中文名，如：英国短毛猫、金毛寻回犬、虎皮鹦鹉；若不确定可写最常见品种
-3. color：毛色/肤色的详细中文描述，至少 2～3 条。例如：蓝灰色、带白色胸毛、四蹄白色、眼圈与鼻周深色、虎斑纹路 等，尽量具体
-4. features：外貌特征的详细中文描述，至少 3～5 条。例如：圆脸、大而圆的眼睛、短毛、体型敦实、耳朵较小、嘴套饱满、表情温和 等，越细致越好
+输出要求（全部中文）：
+1. species：物种（猫/狗/鹦鹉/兔子/猪等）
+2. breed：品种中文名（如英国短毛猫、金毛寻回犬、虎皮鹦鹉）；不确定时给最可能品种，不要编造稀有品种
+3. color：毛色/羽色/肤色与花纹细节，至少包含 4 个维度并合并成一句：
+   - 主色
+   - 次色
+   - 花纹/斑块/条纹位置（如额头、背部、四肢、尾巴、胸口）
+   - 鼻子/耳缘/爪垫/眼周等局部颜色特征
+4. features：外貌特征，至少 6 个要点并合并成一句，优先包含：
+   - 脸型与口鼻部
+   - 眼睛形状/颜色/神态
+   - 耳朵形状与位置
+   - 体型比例（瘦长/敦实/短腿等）
+   - 毛发长度与质感（短毛/长毛/蓬松/顺滑）
+   - 独特标记（泪痕、白袜、项圈痕迹、尾尖颜色等）
+5. confidence：0~1 的小数，表示整体判断置信度
 
-直接返回一个 JSON 对象，不要其他文字，格式示例：
-{"species":"猫","breed":"英国短毛猫","color":"蓝灰色，胸前与四爪有白色，鼻周深色","features":"圆脸，大而圆的眼睛，短毛，体型敦实，耳朵小且圆，嘴套饱满"}`
+约束：
+- 只能根据图中可见信息判断，不要脑补看不见的内容
+- 若遮挡严重，在 features 中点明“部分区域被遮挡”
+- 保持简洁但信息密度高
+
+返回格式（必须完全是 JSON 对象）：
+{"species":"猫","breed":"英国短毛猫","color":"主色蓝灰，胸口与四爪有白色，背部毛色更深，鼻周偏深灰，眼周有浅色过渡","features":"圆脸，嘴套饱满，眼睛大而圆偏金色，耳朵小且耳尖圆，短毛且质地厚实，体型敦实，尾巴中等长度且尾尖略深色","confidence":0.89}`
   const response = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
@@ -69,15 +85,30 @@ async function localIdentify(body: Record<string, unknown>) {
 
 /** 与 api/generate.ts 相同的 prompt + 生成逻辑，供本地开发使用 */
 function buildPetStylePrompt(style: string, species: string, breedName: string, color: string, features: string) {
-  const petDesc = [species, breedName].filter(Boolean).join(' ')
-  const extra = [color, features].filter(Boolean).join(', ')
-  const base = extra ? `A cute ${petDesc}, ${extra}.` : `A cute ${petDesc}.`
+  const petDesc = [species, breedName].filter(Boolean).join(' ').trim()
+  const appearance = [color, features].filter(Boolean).join('; ').trim()
+  const identityAnchor = [
+    `Primary subject: one ${petDesc || 'pet'}.`,
+    appearance ? `Appearance cues from analysis: ${appearance}.` : '',
+    'Use the uploaded reference image as the identity anchor.',
+    'Keep species, face shape, ear shape, eye color, nose color, coat color and markings, body proportions, and distinctive marks consistent with the reference.',
+    'Do not replace the pet with a different animal and do not change key markings.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const quality =
+    'High detail, clean composition, natural anatomy, soft cinematic lighting, single subject, centered portrait, no text, no watermark, no logo.'
   switch (style) {
-    case 'ghibli': return `${base} Portrait, Studio Ghibli style, hand-drawn anime, pastel colors, big eyes, friendly expression.`
-    case 'emoji': return `${base} 3D emoji avatar, colorful, playful, Apple Memoji style, round face.`
-    case 'anime': return `${base} Anime style, Japanese manga, large eyes, vibrant colors, kawaii.`
-    case 'simple': return `${base} Simple hand-drawn style, naive art, childlike drawing.`
-    default: return `${base} Photorealistic, professional photography, studio lighting, cute.`
+    case 'ghibli':
+      return `${identityAnchor} Please convert this image into an anime-style illustration inspired by the visual aesthetics of Studio Ghibli. Maintain the original composition and key elements, but reimagine them with Ghibli-style features: soft painterly textures, warm and natural color palettes, detailed backgrounds, and expressive character design. Aim for a whimsical and nostalgic atmosphere with magical realism, similar to classic Ghibli films. ${quality}`
+    case 'emoji':
+      return `${identityAnchor} Please convert this image into a premium 3D emoji-style portrait. Maintain the original composition and key identity traits, while reimagining the pet with rounded geometry, glossy materials, smooth soft shadows, bright but balanced colors, and a clean minimal background. Keep the expression friendly, playful, and instantly readable like a polished avatar sticker. ${quality}`
+    case 'anime':
+      return `${identityAnchor} Please convert this image into a high-quality Japanese anime illustration. Maintain the original composition and key features, then apply crisp line art, layered cel-shading with subtle gradients, vibrant cinematic color design, expressive eyes, and detailed fur rendering. The final image should feel like a modern anime key visual while preserving the pet's real identity. ${quality}`
+    case 'simple':
+      return `${identityAnchor} Please convert this image into a minimalist hand-drawn illustration. Maintain the original composition and key identity traits, then simplify forms into clean outlines, soft flat colors, light paper texture, and an uncluttered background. Keep a warm, gentle, storybook-like mood with clear silhouette readability. ${quality}`
+    default:
+      return `${identityAnchor} Please convert this image into a photorealistic cinematic pet portrait. Maintain the original composition and key identity traits, with realistic fur strands, accurate colors and markings, natural anatomy, and subtle facial micro-details. Use an 85mm lens look, shallow depth of field, soft studio lighting, and professional color grading for a premium editorial finish. ${quality}`
   }
 }
 
@@ -121,14 +152,34 @@ async function localGenerate(body: Record<string, unknown>) {
 async function localGenerateBurnhair(body: Record<string, unknown>) {
   const apiKey = process.env.VITE_BURNHAIR_API_KEY || process.env.BURNHAIR_API_KEY
   if (!apiKey) return { status: 500, data: { error: 'Missing API key (VITE_BURNHAIR_API_KEY)' } }
-  const { breedName, species, style, model } = body as Record<string, string>
+  const { breedName, species, style, color, features, model } = body as Record<string, string>
+  const petDesc = [species, breedName].filter(Boolean).join(' ').trim()
+  const appearance = [color, features].filter(Boolean).join('; ').trim()
+  const identityAnchor = [
+    `Primary subject: one ${petDesc || 'pet'}.`,
+    appearance ? `Appearance cues: ${appearance}.` : '',
+    'Keep the same pet identity and preserve species, coat color, markings, face structure, ear shape, eye details, and body proportions.',
+    'Do not alter key visual traits.',
+  ]
+    .filter(Boolean)
+    .join(' ')
+  const quality = 'High detail, clean composition, natural anatomy, no text, no watermark, no logo.'
   let prompt = ''
   switch (style) {
-    case 'ghibli': prompt = `A cute ${species} (${breedName}), portrait, Studio Ghibli style, hand-drawn anime, pastel colors, big eyes, friendly expression.`; break
-    case 'emoji': prompt = `A cute ${species} (${breedName}), 3D emoji avatar, colorful, playful, Apple Memoji style, round face.`; break
-    case 'anime': prompt = `A cute ${species} (${breedName}), anime style, Japanese manga, large eyes, vibrant colors, kawaii.`; break
-    case 'simple': prompt = `A cute ${species} (${breedName}), simple hand-drawn style, naive art, childlike drawing.`; break
-    default: prompt = `A photorealistic ${species} (${breedName}), professional photography, studio lighting, cute.`
+    case 'ghibli':
+      prompt = `${identityAnchor} Please convert this image into an anime-style illustration inspired by the visual aesthetics of Studio Ghibli. Maintain the original composition and key elements, but reimagine them with Ghibli-style features: soft painterly textures, warm and natural color palettes, detailed backgrounds, and expressive character design. Aim for a whimsical and nostalgic atmosphere with magical realism, similar to classic Ghibli films. ${quality}`
+      break
+    case 'emoji':
+      prompt = `${identityAnchor} Please convert this image into a premium 3D emoji-style portrait. Maintain the original composition and key identity traits, while reimagining the pet with rounded geometry, glossy materials, smooth soft shadows, bright but balanced colors, and a clean minimal background. Keep the expression friendly, playful, and instantly readable like a polished avatar sticker. ${quality}`
+      break
+    case 'anime':
+      prompt = `${identityAnchor} Please convert this image into a high-quality Japanese anime illustration. Maintain the original composition and key features, then apply crisp line art, layered cel-shading with subtle gradients, vibrant cinematic color design, expressive eyes, and detailed fur rendering. The final image should feel like a modern anime key visual while preserving the pet's real identity. ${quality}`
+      break
+    case 'simple':
+      prompt = `${identityAnchor} Please convert this image into a minimalist hand-drawn illustration. Maintain the original composition and key identity traits, then simplify forms into clean outlines, soft flat colors, light paper texture, and an uncluttered background. Keep a warm, gentle, storybook-like mood with clear silhouette readability. ${quality}`
+      break
+    default:
+      prompt = `${identityAnchor} Please convert this image into a photorealistic cinematic pet portrait. Maintain the original composition and key identity traits, with realistic fur strands, accurate colors and markings, natural anatomy, and subtle facial micro-details. Use an 85mm lens look, shallow depth of field, soft studio lighting, and professional color grading for a premium editorial finish. ${quality}`
   }
   const response = await fetch('https://cn-test.burn.hair/v1/images/generations', {
     method: 'POST',
@@ -154,16 +205,32 @@ async function localIdentifyBurnhair(body: Record<string, unknown>) {
   const imageUrl = body.imageUrl as string | undefined
   if (!imageUrl || typeof imageUrl !== 'string') return { status: 400, data: { error: 'Missing imageUrl' } }
   const model = (body.model as string) || 'gpt-4o'
-  const prompt = `请仔细观察这张宠物照片，识别并返回 JSON，全部使用中文。
+  const prompt = `你是宠物视觉识别助手。请基于图片中“可见信息”做结构化识别，并严格输出 JSON（不要 markdown、不要解释、不要多余文本）。
 
-要求：
-1. species：物种，中文即可，如：猫、狗、鹦鹉、兔子、猪
-2. breed：品种中文名，如：英国短毛猫、金毛寻回犬；若不确定可写最常见品种
-3. color：毛色/肤色的详细中文描述，至少 2～3 条，尽量具体
-4. features：外貌特征的详细中文描述，至少 3～5 条，越细致越好
+输出要求（全部中文）：
+1. species：物种（猫/狗/鹦鹉/兔子/猪等）
+2. breed：品种中文名（如英国短毛猫、金毛寻回犬、虎皮鹦鹉）；不确定时给最可能品种，不要编造稀有品种
+3. color：毛色/羽色/肤色与花纹细节，至少包含 4 个维度并合并成一句：
+   - 主色
+   - 次色
+   - 花纹/斑块/条纹位置（如额头、背部、四肢、尾巴、胸口）
+   - 鼻子/耳缘/爪垫/眼周等局部颜色特征
+4. features：外貌特征，至少 6 个要点并合并成一句，优先包含：
+   - 脸型与口鼻部
+   - 眼睛形状/颜色/神态
+   - 耳朵形状与位置
+   - 体型比例（瘦长/敦实/短腿等）
+   - 毛发长度与质感（短毛/长毛/蓬松/顺滑）
+   - 独特标记（泪痕、白袜、项圈痕迹、尾尖颜色等）
+5. confidence：0~1 的小数，表示整体判断置信度
 
-直接返回一个 JSON 对象，不要其他文字。格式示例：
-{"species":"猫","breed":"英国短毛猫","color":"蓝灰色，胸前与四爪有白色","features":"圆脸，大而圆的眼睛，短毛，体型敦实"}`
+约束：
+- 只能根据图中可见信息判断，不要脑补看不见的内容
+- 若遮挡严重，在 features 中点明“部分区域被遮挡”
+- 保持简洁但信息密度高
+
+返回格式（必须完全是 JSON 对象）：
+{"species":"猫","breed":"英国短毛猫","color":"主色蓝灰，胸口与四爪有白色，背部毛色更深，鼻周偏深灰，眼周有浅色过渡","features":"圆脸，嘴套饱满，眼睛大而圆偏金色，耳朵小且耳尖圆，短毛且质地厚实，体型敦实，尾巴中等长度且尾尖略深色","confidence":0.89}`
   const response = await fetch('https://cn-test.burn.hair/v1/chat/completions', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
