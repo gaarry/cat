@@ -14,11 +14,12 @@ function getApiKey(): string {
 
 function buildPetImagePrompt(breedName: string, species: string): string {
   return (
-    `A cute ${species} (${breedName}) avatar, emoji style, ` +
-    `3D rendered character, colorful, flat design, minimalist, bold colors, ` +
-    `playful and cute, Apple Memoji aesthetic, big expressive eyes, ` +
-    `friendly smile, rounded shapes, white background, ` +
-    `digital avatar icon style, vibrant cheerful colors, high quality.`
+    `A photorealistic ${species} (${breedName}), high quality professional photography, ` +
+    `studio lighting, shallow depth of field, extremely detailed fur texture, ` +
+    `natural realistic colors, looking directly at camera, friendly expression, ` +
+    `crisp clear eyes, clean solid background, ` +
+    `photo quality, realistic, life-like, 8K professional portrait, ` +
+    `cute and endearing, round face, adorable.`
   );
 }
 

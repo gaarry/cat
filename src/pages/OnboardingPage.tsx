@@ -164,11 +164,11 @@ export function OnboardingPage() {
               {isGeneratingImage ? (
                 <>
                   <Loader2 className="animate-spin text-amber-500 mb-4" size={48} />
-                  <p className="text-amber-800">正在生成宫崎骏风格专属形象…</p>
+                  <p className="text-amber-800">正在生成专属形象…</p>
                 </>
               ) : (
                 <>
-                  <p className="text-amber-800 mb-4">点击下方按钮生成专属形象（宫崎骏风格）</p>
+                  <p className="text-amber-800 mb-4">点击下方按钮生成专属形象</p>
                   <button
                     type="button"
                     onClick={handleGenerate}

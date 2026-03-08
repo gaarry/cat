@@ -69,7 +69,7 @@ export function PhotoUpload({ value, onChange, disabled }: PhotoUploadProps) {
           <span className="text-sm font-medium">上传宠物照片</span>
         </button>
       )}
-      <p className="text-xs text-amber-800/70">用于生成专属宫崎骏风格形象</p>
+      <p className="text-xs text-amber-800/70">用于生成专属形象</p>
     </div>
   );
 }
