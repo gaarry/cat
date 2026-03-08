@@ -1,12 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoUpload } from '../components/PhotoUpload';
-import { breeds, speciesLabels } from '../data/breeds';
+import { breeds } from '../data/breeds';
 import { usePetStore } from '../store/usePetStore';
 import type { PetSpecies, PetProfile, ImageStyle } from '../types/pet';
 import { generatePetImageQwen } from '../api/qwenImage';
 import { identifyPetFromImage } from '../api/identifyPet';
-import { Heart, ChevronRight, Loader2, Sparkles, Settings, Check } from 'lucide-react';
+import { Heart, ChevronRight, Loader2, Sparkles, Settings, RefreshCw } from 'lucide-react';
 
 // 图像生成模型选项
 export const IMAGE_GEN_MODELS = [
@@ -31,7 +31,7 @@ const STYLE_OPTIONS: { id: ImageStyle; name: string; desc: string }[] = [
 ];
 
 // 步骤
-const STEPS = ['photo', 'identify', 'style', 'generate', 'name'] as const;
+const STEPS = ['photo', 'identify', 'generate', 'name'] as const;
 
 // 从英文名匹配品种
 function matchBreed(englishName: string, species: string): { id: string; name: string } | null {
@@ -52,7 +52,6 @@ function matchBreed(englishName: string, species: string): { id: string; name: s
 
 export function OnboardingPage() {
   const setPet = usePetStore((s) => s.setPet);
-  const setGeneratingImage = usePetStore((s) => s.setGeneratingImage);
   
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEPS[stepIndex];
@@ -67,20 +66,16 @@ export function OnboardingPage() {
   
   // 识别状态
   const [isIdentifying, setIsIdentifying] = useState(false);
-  const [identifiedInfo, setIdentifiedInfo] = useState<{
-    species: string;
-    breed: string;
-    breedName: string;
-    color: string;
-    features: string;
-  } | null>(null);
+  const [isGenerating, setIsGenerating] = useState(false);
   
-  // 宠物信息
-  const [species, setSpecies] = useState<PetSpecies | null>(null);
-  const [breedId, setBreedId] = useState<string | null>(null);
-  const [breedName, setBreedName] = useState<string>('');
-  const [personalityIds] = useState<string[]>(['gentle']);
+  // 可编辑的宠物信息
+  const [species, setSpecies] = useState<PetSpecies>('cat');
+  const [breedId, setBreedId] = useState<string>('cat-british');
+  const [breedName, setBreedName] = useState<string>('英国短毛猫');
+  const [color, setColor] = useState<string>('');
+  const [features, setFeatures] = useState<string>('');
   const [styleId, setStyleId] = useState<ImageStyle>('realistic');
+  const [personalityIds] = useState<string[]>(['gentle']);
   const [voiceStyleId] = useState<string | null>('female-gentle');
   
   // 生成的图像
@@ -88,15 +83,12 @@ export function OnboardingPage() {
   
   // 名字
   const [petName, setPetName] = useState('');
-  
-  const breed = breedId ? breeds.find((b) => b.id === breedId) : null;
+
+  const breed = breeds.find((b) => b.id === breedId);
 
   const handlePhotoChange = useCallback((_file: File | null, url?: string) => {
     setPhotoDataUrl(url ?? null);
-    setIdentifiedInfo(null);
     setGeneratedImageUrl(null);
-    setBreedId(null);
-    setBreedName('');
   }, []);
 
   // AI 识别
@@ -109,43 +101,31 @@ export function OnboardingPage() {
       
       if (result) {
         const petSpecies = result.species.toLowerCase();
-        let mappedSpecies: PetSpecies | null = null;
+        let mappedSpecies: PetSpecies = 'cat';
         
-        if (petSpecies.includes('cat') || petSpecies.includes('猫')) mappedSpecies = 'cat';
-        else if (petSpecies.includes('dog') || petSpecies.includes('狗')) mappedSpecies = 'dog';
+        if (petSpecies.includes('dog') || petSpecies.includes('狗')) mappedSpecies = 'dog';
         else if (petSpecies.includes('rabbit') || petSpecies.includes('兔')) mappedSpecies = 'rabbit';
         else if (petSpecies.includes('parrot') || petSpecies.includes('鹦鹉')) mappedSpecies = 'parrot';
         else if (petSpecies.includes('pig') || petSpecies.includes('猪')) mappedSpecies = 'pig';
         
-        if (mappedSpecies) {
-          setSpecies(mappedSpecies);
-          
-          const matched = matchBreed(result.breed, mappedSpecies);
-          let finalBreedName = result.breed;
-          
-          if (matched) {
-            setBreedId(matched.id);
-            setBreedName(matched.name);
-            finalBreedName = matched.name;
-          } else {
-            const defaultBreed = breeds.find(b => b.species === mappedSpecies);
-            if (defaultBreed) {
-              setBreedId(defaultBreed.id);
-              setBreedName(defaultBreed.name);
-              finalBreedName = defaultBreed.name;
-            }
+        setSpecies(mappedSpecies);
+        
+        const matched = matchBreed(result.breed, mappedSpecies);
+        if (matched) {
+          setBreedId(matched.id);
+          setBreedName(matched.name);
+        } else {
+          const defaultBreed = breeds.find(b => b.species === mappedSpecies);
+          if (defaultBreed) {
+            setBreedId(defaultBreed.id);
+            setBreedName(defaultBreed.name);
           }
-          
-          setIdentifiedInfo({
-            species: speciesLabels[mappedSpecies] || result.species,
-            breed: result.breed,
-            breedName: finalBreedName,
-            color: result.color,
-            features: result.features,
-          });
-          
-          setStepIndex(2);
         }
+        
+        setColor(result.color || '');
+        setFeatures(result.features || '');
+        
+        setStepIndex(1);
       }
     } catch (e) {
       console.error('识别失败:', e);
@@ -155,9 +135,9 @@ export function OnboardingPage() {
   };
 
   // 生成图像
-  const handleGenerateImage = async () => {
-    if (!species || !breedId) return;
-    setGeneratingImage(true);
+  const handleGenerate = async () => {
+    setIsGenerating(true);
+    setGeneratedImageUrl(null);
     
     try {
       const breedObj = breeds.find(b => b.id === breedId);
@@ -167,33 +147,31 @@ export function OnboardingPage() {
         breedName: breedObj.name,
         species,
         style: styleId,
-        color: identifiedInfo?.color,
-        features: identifiedInfo?.features,
+        color: color || undefined,
+        features: features || undefined,
         model: imageModel,
       });
       
       setGeneratedImageUrl(imageUrl || photoDataUrl);
-      setStepIndex(4);
+      setStepIndex(2);
     } catch (e) {
       console.error('生成失败:', e);
       setGeneratedImageUrl(photoDataUrl);
-      setStepIndex(4);
+      setStepIndex(2);
     } finally {
-      setGeneratingImage(false);
+      setIsGenerating(false);
     }
   };
 
   // 完成
   const handleFinish = () => {
-    if (!species || !breedId) return;
-    
     const breedObj = breeds.find(b => b.id === breedId);
     
     const pet: PetProfile = {
       id: crypto.randomUUID(),
       species,
       breedId,
-      breedName: breedObj?.name || breedName || petName,
+      breedName: breedObj?.name || breedName,
       personalityIds,
       style: styleId,
       voiceStyleId: voiceStyleId!,
@@ -208,28 +186,33 @@ export function OnboardingPage() {
   const canIdentify = photoDataUrl && !isIdentifying;
   const canFinish = petName.trim() || breedName || breed?.name;
 
-  // 进入生成步骤时自动触发
-  useEffect(() => {
-    if (step === 'generate' && !generatedImageUrl) {
-      handleGenerateImage();
+  // 获取当前物种的emoji
+  const getSpeciesEmoji = () => {
+    switch (species) {
+      case 'cat': return '🐱';
+      case 'dog': return '🐕';
+      case 'parrot': return '🦜';
+      case 'rabbit': return '🐰';
+      case 'pig': return '🐷';
+      default: return '🐾';
     }
-  }, [step]);
+  };
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-lg bg-[var(--card-bg)] rounded-3xl shadow-xl border border-amber-200/60 p-8"
+        className="w-full max-w-lg bg-[var(--card-bg)] rounded-3xl shadow-xl border border-amber-200/60 p-6"
       >
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <Heart className="text-amber-500" size={28} />
-          <h1 className="text-xl font-bold text-amber-900">创建专属宠物伙伴</h1>
+        <div className="flex items-center justify-center gap-2 mb-4">
+          <Heart className="text-amber-500" size={24} />
+          <h1 className="text-lg font-bold text-amber-900">创建专属宠物伙伴</h1>
           <button 
             onClick={() => setShowSettings(!showSettings)}
-            className="ml-auto p-2 text-gray-400 hover:text-gray-600"
+            className="ml-auto p-1 text-gray-400 hover:text-gray-600"
           >
-            <Settings size={20} />
+            <Settings size={18} />
           </button>
         </div>
 
@@ -240,38 +223,36 @@ export function OnboardingPage() {
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: 'auto', opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="mb-6 bg-gray-50 rounded-xl p-4 overflow-hidden"
+              className="mb-4 bg-gray-50 rounded-xl p-3 overflow-hidden text-sm"
             >
-              <div className="mb-4">
-                <label className="text-sm font-medium text-gray-700 mb-2 block">图像生成模型</label>
-                <div className="grid grid-cols-3 gap-2">
+              <div className="mb-3">
+                <label className="text-xs font-medium text-gray-600 mb-1 block">图像生成模型</label>
+                <div className="grid grid-cols-3 gap-1">
                   {IMAGE_GEN_MODELS.map(m => (
                     <button
                       key={m.id}
                       onClick={() => setImageModel(m.id)}
-                      className={`p-2 rounded-lg text-left text-sm ${
-                        imageModel === m.id ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-700'
+                      className={`p-1.5 rounded text-xs ${
+                        imageModel === m.id ? 'bg-purple-500 text-white' : 'bg-white border text-gray-600'
                       }`}
                     >
-                      <div className="font-medium">{m.name}</div>
-                      <div className="text-xs opacity-80">{m.desc}</div>
+                      {m.name}
                     </button>
                   ))}
                 </div>
               </div>
               <div>
-                <label className="text-sm font-medium text-gray-700 mb-2 block">视觉识别模型</label>
-                <div className="grid grid-cols-2 gap-2">
+                <label className="text-xs font-medium text-gray-600 mb-1 block">视觉识别模型</label>
+                <div className="grid grid-cols-2 gap-1">
                   {VISION_MODELS.map(m => (
                     <button
                       key={m.id}
                       onClick={() => setVisionModel(m.id)}
-                      className={`p-2 rounded-lg text-left text-sm ${
-                        visionModel === m.id ? 'bg-purple-500 text-white' : 'bg-white border border-gray-200 text-gray-700'
+                      className={`p-1.5 rounded text-xs ${
+                        visionModel === m.id ? 'bg-purple-500 text-white' : 'bg-white border text-gray-600'
                       }`}
                     >
-                      <div className="font-medium">{m.name}</div>
-                      <div className="text-xs opacity-80">{m.desc}</div>
+                      {m.name}
                     </button>
                   ))}
                 </div>
@@ -281,7 +262,7 @@ export function OnboardingPage() {
         </AnimatePresence>
 
         {/* 进度条 */}
-        <div className="flex gap-1 mb-6">
+        <div className="flex gap-1 mb-4">
           {STEPS.map((s, i) => (
             <div
               key={s}
@@ -305,20 +286,20 @@ export function OnboardingPage() {
               <PhotoUpload value={photoDataUrl ?? undefined} onChange={handlePhotoChange} />
               
               {photoDataUrl && (
-                <div className="mt-6 w-full">
+                <div className="mt-4 w-full">
                   <button
                     onClick={handleIdentify}
                     disabled={!canIdentify}
-                    className="w-full py-4 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2 hover:opacity-90 transition-opacity"
+                    className="w-full py-3 rounded-xl bg-gradient-to-r from-purple-500 to-pink-500 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2"
                   >
                     {isIdentifying ? (
                       <>
-                        <Loader2 className="animate-spin" size={20} />
+                        <Loader2 className="animate-spin" size={18} />
                         AI 智能识别中...
                       </>
                     ) : (
                       <>
-                        <Sparkles size={20} />
+                        <Sparkles size={18} />
                         AI 智能识别
                       </>
                     )}
@@ -328,135 +309,207 @@ export function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* 步骤2: 识别结果确认 */}
-          {step === 'identify' && identifiedInfo && (
+          {/* 步骤2: 确认信息 + 选择风格 + 生成 */}
+          {step === 'identify' && (
             <motion.div
               key="identify"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="text-center space-y-4"
+              className="space-y-4"
             >
+              <div className="text-center">
+                <Sparkles className="text-purple-500 mx-auto mb-1" size={28} />
+                <h3 className="text-base font-medium text-purple-700">确认宠物信息</h3>
+              </div>
+              
+              {/* 可编辑的信息表单 */}
+              <div className="bg-purple-50 rounded-xl p-3 space-y-2">
+                {/* 种类 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 w-12">种类</span>
+                  <select
+                    value={species}
+                    onChange={(e) => {
+                      const newSpecies = e.target.value as PetSpecies;
+                      setSpecies(newSpecies);
+                      const defaultBreed = breeds.find(b => b.species === newSpecies);
+                      if (defaultBreed) {
+                        setBreedId(defaultBreed.id);
+                        setBreedName(defaultBreed.name);
+                      }
+                    }}
+                    className="flex-1 text-sm px-2 py-1 rounded border"
+                  >
+                    <option value="cat">🐱 猫咪</option>
+                    <option value="dog">🐕 狗狗</option>
+                    <option value="parrot">🦜 鹦鹉</option>
+                    <option value="rabbit">🐰 兔子</option>
+                    <option value="pig">🐷 小猪</option>
+                  </select>
+                </div>
+                
+                {/* 品种 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 w-12">品种</span>
+                  <select
+                    value={breedId}
+                    onChange={(e) => {
+                      const b = breeds.find(b => b.id === e.target.value);
+                      setBreedId(e.target.value);
+                      setBreedName(b?.name || '');
+                    }}
+                    className="flex-1 text-sm px-2 py-1 rounded border"
+                  >
+                    {breeds.filter(b => b.species === species).map(b => (
+                      <option key={b.id} value={b.id}>{b.name}</option>
+                    ))}
+                  </select>
+                </div>
+                
+                {/* 毛色 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 w-12">毛色</span>
+                  <input
+                    type="text"
+                    value={color}
+                    onChange={(e) => setColor(e.target.value)}
+                    placeholder="如：蓝色、虎斑色"
+                    className="flex-1 text-sm px-2 py-1 rounded border"
+                  />
+                </div>
+                
+                {/* 特征 */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-gray-600 w-12">特征</span>
+                  <input
+                    type="text"
+                    value={features}
+                    onChange={(e) => setFeatures(e.target.value)}
+                    placeholder="如：圆脸、大眼睛"
+                    className="flex-1 text-sm px-2 py-1 rounded border"
+                  />
+                </div>
+              </div>
+              
+              {/* 风格选择 */}
               <div>
-                <Sparkles className="text-purple-500 mx-auto mb-2" size={40} />
-                <h3 className="text-lg font-medium text-purple-700">已识别到你的宠物</h3>
+                <label className="text-sm text-gray-600 mb-2 block">选择生成风格</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {STYLE_OPTIONS.map(style => (
+                    <button
+                      key={style.id}
+                      onClick={() => setStyleId(style.id)}
+                      className={`p-2 rounded-lg text-xs ${
+                        styleId === style.id 
+                          ? 'bg-purple-500 text-white' 
+                          : 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                      }`}
+                    >
+                      {style.name}
+                    </button>
+                  ))}
+                </div>
               </div>
               
-              <div className="bg-purple-50 rounded-xl py-6 px-4">
-                <div className="text-3xl mb-2">{
-                  identifiedInfo.species === '猫咪' ? '🐱' : 
-                  identifiedInfo.species === '狗狗' ? '🐕' : 
-                  identifiedInfo.species === '鹦鹉' ? '🦜' : 
-                  identifiedInfo.species === '兔子' ? '🐰' : '🐷'
-                }</div>
-                <div className="text-xl font-bold text-purple-800">{identifiedInfo.breedName}</div>
-                <div className="text-sm text-purple-600 mt-1">一只可爱的{identifiedInfo.species}</div>
-              </div>
-              
+              {/* 生成按钮 */}
               <button
-                onClick={() => setStepIndex(2)}
-                className="w-full py-3 rounded-xl bg-purple-500 text-white font-medium hover:bg-purple-600 flex items-center justify-center gap-2"
+                onClick={handleGenerate}
+                disabled={isGenerating}
+                className="w-full py-3 rounded-xl bg-amber-500 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                下一步 <ChevronRight size={20} />
+                {isGenerating ? (
+                  <>
+                    <Loader2 className="animate-spin" size={18} />
+                    正在生成...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw size={18} />
+                    生成专属形象
+                  </>
+                )}
               </button>
             </motion.div>
           )}
 
-          {/* 步骤3: 选择风格 */}
-          {step === 'style' && (
-            <motion.div
-              key="style"
-              initial={{ opacity: 0, x: 10 }}
-              animate={{ opacity: 1, x: 0 }}
-              exit={{ opacity: 0, x: -10 }}
-              className="space-y-4"
-            >
-              <h3 className="text-lg font-medium text-center text-amber-900">选择生成风格</h3>
-              
-              <div className="grid grid-cols-2 gap-3">
-                {STYLE_OPTIONS.map(style => (
-                  <button
-                    key={style.id}
-                    onClick={() => {
-                      setStyleId(style.id);
-                      handleGenerateImage();
-                    }}
-                    className="p-4 rounded-xl border-2 border-amber-200 hover:border-amber-400 hover:bg-amber-50 transition-all text-left"
-                  >
-                    <div className="font-medium text-amber-900">{style.name}</div>
-                    <div className="text-sm text-amber-600">{style.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </motion.div>
-          )}
-
-          {/* 步骤4: 生成中 */}
+          {/* 步骤3: 生成中 */}
           {step === 'generate' && (
             <motion.div
               key="generate"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="flex flex-col items-center py-12"
+              className="flex flex-col items-center py-8"
             >
-              <Loader2 className="animate-spin text-amber-500 mb-4" size={48} />
+              <Loader2 className="animate-spin text-amber-500 mb-3" size={40} />
               <p className="text-amber-800">正在生成专属形象…</p>
-              <p className="text-sm text-gray-500 mt-2">
+              <p className="text-sm text-gray-500 mt-1">
                 风格: {STYLE_OPTIONS.find(s => s.id === styleId)?.name}
               </p>
             </motion.div>
           )}
 
-          {/* 步骤5: 名字 */}
+          {/* 步骤4: 名字 */}
           {step === 'name' && (
             <motion.div
               key="name"
               initial={{ opacity: 0, x: 10 }}
               animate={{ opacity: 1, x: 0 }}
               exit={{ opacity: 0, x: -10 }}
-              className="space-y-6"
+              className="space-y-4"
             >
-              <div className="bg-purple-50 rounded-xl p-4 text-sm">
+              {/* 宠物信息 */}
+              <div className="bg-purple-50 rounded-xl p-3 text-sm">
                 <div className="flex items-center gap-2 text-purple-700 mb-2">
-                  <Sparkles size={16} />
-                  <span>已识别: {identifiedInfo?.species} · {identifiedInfo?.breedName}</span>
-                </div>
-                <div className="flex items-center gap-2 text-purple-700">
-                  <Check size={16} />
-                  <span>风格: {STYLE_OPTIONS.find(s => s.id === styleId)?.name}</span>
+                  {getSpeciesEmoji()}
+                  <span>{breedName}</span>
+                  <span className="text-purple-500">·</span>
+                  <span>{STYLE_OPTIONS.find(s => s.id === styleId)?.name}</span>
                 </div>
               </div>
               
-              <div className="flex flex-col items-center">
+              {/* 生成的图像 */}
+              <div className="flex justify-center">
                 {generatedImageUrl && (
                   <img
                     src={generatedImageUrl}
                     alt="专属形象"
-                    className="w-40 h-40 rounded-2xl object-cover border-4 border-amber-200 shadow-lg mb-4"
+                    className="w-32 h-32 rounded-2xl object-cover border-4 border-amber-200 shadow-lg"
                   />
                 )}
               </div>
               
+              {/* 重新生成按钮 */}
+              <button
+                onClick={() => {
+                  setStepIndex(1);
+                }}
+                className="w-full py-2 rounded-lg border border-amber-300 text-amber-700 text-sm hover:bg-amber-50"
+              >
+                重新选择风格生成
+              </button>
+              
+              {/* 名字输入 */}
               <div>
-                <label className="block text-sm font-medium text-amber-900 mb-2">
+                <label className="text-sm font-medium text-amber-900 mb-1 block">
                   给你的宠物起个名字
                 </label>
                 <input
                   type="text"
                   value={petName}
                   onChange={(e) => setPetName(e.target.value)}
-                  placeholder={breed?.name || breedName || '小可爱'}
-                  className="w-full px-4 py-3 rounded-xl border border-amber-200 bg-white focus:ring-2 focus:ring-amber-400 focus:border-amber-400 outline-none text-center text-lg"
+                  placeholder={breed?.name || '小可爱'}
+                  className="w-full px-3 py-2 rounded-xl border border-amber-200 bg-white text-center"
                 />
               </div>
               
               <button
                 onClick={handleFinish}
                 disabled={!canFinish}
-                className="w-full py-4 rounded-xl bg-amber-500 text-white font-medium disabled:opacity-50 hover:bg-amber-600 flex items-center justify-center gap-2 text-lg"
+                className="w-full py-3 rounded-xl bg-amber-500 text-white font-medium disabled:opacity-50 flex items-center justify-center gap-2"
               >
-                开始陪伴 <ChevronRight size={24} />
+                开始陪伴 <ChevronRight size={20} />
               </button>
             </motion.div>
           )}
