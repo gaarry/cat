@@ -1,33 +1,40 @@
 // 图像生成 API 代理
-export default async function handler(req) {
-  const { breedName, species, style, color, features, model } = req.body;
-  
-  // 构建 prompt
-  let prompt = '';
-  switch (style) {
-    case 'ghibli':
-      prompt = `A cute ${species} (${breedName}), portrait, head and shoulders. Studio Ghibli art style by Hayao Miyazaki: hand-drawn 2D anime, soft watercolor texture, pastel palette, warm dreamy lighting. Big expressive eyes, gentle friendly expression, simple rounded shapes. Illustrated character sheet style, no photo-realism, whimsical and heartwarming. Clean background.`;
-      break;
-    case 'emoji':
-      prompt = `A cute ${species} (${breedName}) avatar, emoji style, 3D rendered character, colorful, flat design, minimalist, bold colors, playful and cute, Apple Memoji aesthetic, big expressive eyes, friendly smile, rounded shapes, white background.`;
-      break;
-    case 'anime':
-      prompt = `A cute ${species} (${breedName}), anime style, Japanese manga, large expressive eyes with highlights, intricate details, vibrant colors, clean linework, anime character portrait, kawaii aesthetic.`;
-      break;
-    case 'simple':
-      prompt = `A cute ${species} (${breedName}), simple hand-drawn style, naive art, primitive painting, childlike drawing, warm and friendly, soft edges, gentle colors, innocent expression.`;
-      break;
-    default: // realistic
-      prompt = `A photorealistic ${species} (${breedName}), high quality professional photography, studio lighting, shallow depth of field, extremely detailed fur texture, natural realistic colors, looking directly at camera, friendly expression, crisp clear eyes, clean solid background, photo quality.`;
-  }
-  
-  if (color || features) {
-    prompt = `A ${species} (${breedName})${color ? ` with ${color}` : ''}${features ? `, ${features}` : ''}, ` + prompt;
-  }
+export const config = {
+  api: {
+    bodyParser: {
+      sizeLimit: '1mb',
+    },
+  },
+};
 
-  const apiKey = process.env.QWEN_API_KEY;
-  
+export default async function handler(req, res) {
   try {
+    const { breedName, species, style, color, features, model } = req.body;
+    
+    // 构建 prompt
+    let prompt = '';
+    switch (style) {
+      case 'ghibli':
+        prompt = `A cute ${species} (${breedName}), portrait, Studio Ghibli style, hand-drawn anime, pastel colors, big eyes, friendly expression.`;
+        break;
+      case 'emoji':
+        prompt = `A cute ${species} (${breedName}), 3D emoji avatar, colorful, playful, Apple Memoji style, round face.`;
+        break;
+      case 'anime':
+        prompt = `A cute ${species} (${breedName}), anime style, Japanese manga, large eyes, vibrant colors, kawaii.`;
+        break;
+      case 'simple':
+        prompt = `A cute ${species} (${breedName}), simple hand-drawn style, naive art, childlike drawing.`;
+        break;
+      default:
+        prompt = `A photorealistic ${species} (${breedName}), professional photography, studio lighting, cute.`;
+    }
+
+    const apiKey = process.env.QWEN_API_KEY;
+    if (!apiKey) {
+      return res.status(500).json({ error: 'Missing API key' });
+    }
+
     const response = await fetch('https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation', {
       method: 'POST',
       headers: {
@@ -37,33 +44,19 @@ export default async function handler(req) {
       body: JSON.stringify({
         model: model || 'qwen-image-2.0-pro',
         input: {
-          messages: [
-            {
-              role: 'user',
-              content: [{ text: prompt }]
-            }
-          ]
+          messages: [{ role: 'user', content: [{ text: prompt }] }]
         }
       })
     });
 
     const data = await response.json();
     
-    if (data.choices && data.choices[0]?.message?.content?.[0]?.image) {
-      return {
-        statusCode: 200,
-        body: JSON.stringify({ imageUrl: data.choices[0].message.content[0].image })
-      };
+    if (data.choices?.[0]?.message?.content?.[0]?.image) {
+      return res.status(200).json({ imageUrl: data.choices[0].message.content[0].image });
     }
     
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: '生成失败', details: data })
-    };
+    return res.status(500).json({ error: '生成失败', details: data });
   } catch (error) {
-    return {
-      statusCode: 500,
-      body: JSON.stringify({ error: error.message })
-    };
+    return res.status(500).json({ error: error.message });
   }
 }
