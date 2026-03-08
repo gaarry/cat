@@ -8,7 +8,7 @@ import { StyleSelector } from '../components/StyleSelector';
 import { breeds } from '../data/breeds';
 import { usePetStore } from '../store/usePetStore';
 import type { PetSpecies, PetProfile, ImageStyle } from '../types/pet';
-import { generatePetImageBurnHair } from '../api/burnHairImage';
+import { generatePetImageQwen } from '../api/qwenImage';
 import { identifyPetFromImage } from '../api/identifyPet';
 import { Heart, ChevronRight, Loader2, Sparkles } from 'lucide-react';
 
@@ -112,7 +112,7 @@ export function OnboardingPage() {
     if (!species || !breed) return;
     setGeneratingImage(true);
     try {
-      const url = await generatePetImageBurnHair({
+      const url = await generatePetImageQwen({
         breedName: breed.name,
         species,
         style: styleId,
