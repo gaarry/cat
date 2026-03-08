@@ -40,20 +40,27 @@ const STYLE_OPTIONS: { id: ImageStyle; name: string; desc: string }[] = [
 // 步骤
 const STEPS = ['photo', 'identify', 'generate', 'name'] as const;
 
-// 从英文名匹配品种
-function matchBreed(englishName: string, species: string): { id: string; name: string } | null {
-  const lower = englishName.toLowerCase();
+// 从品种名匹配（支持中文名或英文名）
+function matchBreed(breedName: string, species: string): { id: string; name: string } | null {
+  const trim = breedName.trim();
+  if (!trim) return null;
+  const lower = trim.toLowerCase();
   const speciesBreeds = breeds.filter(b => b.species === species);
-  
-  const exact = speciesBreeds.find(b => b.nameEn?.toLowerCase() === lower);
-  if (exact) return { id: exact.id, name: exact.name };
-  
-  const partial = speciesBreeds.find(b => 
-    b.nameEn?.toLowerCase().includes(lower) || 
-    lower.includes(b.nameEn?.toLowerCase() || '')
+
+  const exactEn = speciesBreeds.find(b => b.nameEn?.toLowerCase() === lower);
+  if (exactEn) return { id: exactEn.id, name: exactEn.name };
+  const exactCn = speciesBreeds.find(b => b.name === trim);
+  if (exactCn) return { id: exactCn.id, name: exactCn.name };
+
+  const partialEn = speciesBreeds.find(b =>
+    b.nameEn?.toLowerCase().includes(lower) || lower.includes(b.nameEn?.toLowerCase() || '')
   );
-  if (partial) return { id: partial.id, name: partial.name };
-  
+  if (partialEn) return { id: partialEn.id, name: partialEn.name };
+  const partialCn = speciesBreeds.find(b =>
+    b.name.includes(trim) || trim.includes(b.name)
+  );
+  if (partialCn) return { id: partialCn.id, name: partialCn.name };
+
   return null;
 }
 
