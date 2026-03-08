@@ -2,8 +2,6 @@
  * 宠物品种识别 API (Qwen VL via 阿里云)
  */
 
-const API_BASE = 'https://dashscope.aliyuncs.com/api/v1/services/aigc/multimodal-generation/generation';
-
 function getApiKey(): string {
   return import.meta.env.VITE_QWEN_API_KEY ?? '';
 }
@@ -19,33 +17,32 @@ export interface PetBreedResult {
 /**
  * 调用 Qwen VL 识别宠物图片，返回品种和特征
  * @param imageUrl - 图片 URL (base64 或 http)
+ * @param model - 视觉模型名称
  */
-export async function identifyPetFromImage(imageUrl: string): Promise<PetBreedResult | null> {
+export async function identifyPetFromImage(imageUrl: string, model: string = 'qwen2.5-vl-32b-instruct'): Promise<PetBreedResult | null> {
   const apiKey = getApiKey();
   if (!apiKey) {
     console.error('缺少 Qwen API Key');
     return null;
   }
 
-  const res = await fetch(API_BASE, {
+  const res = await fetch('https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'qwen2.5-vl-32b-instruct',
-      input: {
-        messages: [
-          {
-            role: 'user',
-            content: [
-              { image: imageUrl },
-              { text: '请仔细分析这张宠物图片，识别出：1.宠物种类(cat/dog/rabbit/parrot/pig) 2.具体品种 3.毛色花纹 4.显著外观特征。请以JSON格式返回：{"species":"cat","breed":"British Shorthair","color":"blue","features":"圆脸大眼睛","confidence":0.95}' }
-            ]
-          }
-        ]
-      }
+      model: model,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            { type: 'image_url', image_url: { url: imageUrl } },
+            { type: 'text', text: '请仔细分析这张宠物图片，识别出：1.宠物种类(cat/dog/rabbit/parrot/pig) 2.具体品种 3.毛色花纹 4.显著外观特征。请以JSON格式返回：{"species":"cat","breed":"British Shorthair","color":"blue","features":"圆脸大眼睛","confidence":0.95}' }
+          ]
+        }
+      ]
     }),
   });
 
@@ -57,7 +54,7 @@ export async function identifyPetFromImage(imageUrl: string): Promise<PetBreedRe
   const data = (await res.json()) as {
     choices?: Array<{
       message?: {
-        content?: Array<{ text?: string }>;
+        content?: string;
       };
     }>;
     error?: { message?: string };
@@ -68,7 +65,7 @@ export async function identifyPetFromImage(imageUrl: string): Promise<PetBreedRe
     return null;
   }
 
-  const content = data.choices?.[0]?.message?.content?.[0]?.text ?? '';
+  const content = data.choices?.[0]?.message?.content ?? '';
   
   // 解析 JSON
   try {

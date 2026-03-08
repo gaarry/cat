@@ -1,18 +1,26 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PhotoUpload } from '../components/PhotoUpload';
-import { BreedSelector } from '../components/BreedSelector';
-import { PersonalitySelector } from '../components/PersonalitySelector';
-import { VoiceStyleSelector } from '../components/VoiceStyleSelector';
-import { StyleSelector } from '../components/StyleSelector';
 import { breeds } from '../data/breeds';
 import { usePetStore } from '../store/usePetStore';
 import type { PetSpecies, PetProfile, ImageStyle } from '../types/pet';
 import { generatePetImageQwen } from '../api/qwenImage';
 import { identifyPetFromImage } from '../api/identifyPet';
-import { Heart, ChevronRight, Loader2, Sparkles, Zap } from 'lucide-react';
+import { Heart, ChevronRight, Loader2, Sparkles, Zap, Settings } from 'lucide-react';
 
-// 简化的步骤：photo -> quick (识别+生成) / full (完整流程) -> name
+// 图像生成模型选项
+export const IMAGE_GEN_MODELS = [
+  { id: 'qwen-image-2.0-pro', name: 'Qwen Image 2.0 Pro', desc: '最新最强生成', price: '¥0.5/张' },
+  { id: 'qwen-image-2.0', name: 'Qwen Image 2.0', desc: '平衡性价比', price: '¥0.2/张' },
+  { id: 'qwen-image-max', name: 'Qwen Image Max', desc: '最高质量', price: '¥0.5/张' },
+];
+
+// 视觉识别模型选项  
+export const VISION_MODELS = [
+  { id: 'qwen2.5-vl-32b-instruct', name: 'Qwen2.5 VL 32B', desc: '视觉理解强' },
+  { id: 'qwen-plus', name: 'Qwen Plus', desc: '综合能力强' },
+];
+
 const STEPS = ['photo', 'generate', 'name'] as const;
 
 export function OnboardingPage() {
@@ -20,14 +28,18 @@ export function OnboardingPage() {
   const setGeneratingImage = usePetStore((s) => s.setGeneratingImage);
   const isGeneratingImage = usePetStore((s) => s.isGeneratingImage);
   
-  // 步骤
   const [stepIndex, setStepIndex] = useState(0);
   const step = STEPS[stepIndex];
+  
+  // 模型选择
+  const [imageModel, setImageModel] = useState('qwen-image-2.0-pro');
+  const [visionModel, setVisionModel] = useState('qwen2.5-vl-32b-instruct');
+  const [showSettings, setShowSettings] = useState(false);
   
   // 照片
   const [photoDataUrl, setPhotoDataUrl] = useState<string | null>(null);
   
-  // 识别状态
+  // 识别
   const [isIdentifying, setIsIdentifying] = useState(false);
   const [identifiedInfo, setIdentifiedInfo] = useState<{
     species: string;
@@ -36,7 +48,7 @@ export function OnboardingPage() {
     features: string;
   } | null>(null);
   
-  // 宠物信息（使用默认值）
+  // 宠物信息
   const [species, setSpecies] = useState<PetSpecies | null>(null);
   const [breedId, setBreedId] = useState<string | null>(null);
   const [personalityIds] = useState<string[]>(['gentle']);
@@ -52,7 +64,6 @@ export function OnboardingPage() {
   
   const breed = breedId ? breeds.find((b) => b.id === breedId) : null;
 
-  // 自动检测品种
   const mapSpeciesToPetSpecies = (s: string): PetSpecies | null => {
     const lower = s.toLowerCase();
     if (lower.includes('cat') || lower.includes('猫')) return 'cat';
@@ -72,15 +83,13 @@ export function OnboardingPage() {
     return partial?.id || null;
   };
 
-  // 一键识别 + 生成
   const handleQuickCreate = async () => {
     if (!photoDataUrl) return;
     setIsIdentifying(true);
     setGeneratingImage(true);
     
     try {
-      // 1. 识别宠物
-      const identifyResult = await identifyPetFromImage(photoDataUrl);
+      const identifyResult = await identifyPetFromImage(photoDataUrl, visionModel);
       
       let finalSpecies: PetSpecies | null = species;
       let finalBreedId: string | null = breedId;
@@ -97,7 +106,6 @@ export function OnboardingPage() {
         finalColor = identifyResult.color;
         finalFeatures = identifyResult.features;
         
-        // 自动选择品种
         const detectedSpecies = mapSpeciesToPetSpecies(identifyResult.species);
         if (detectedSpecies) {
           finalSpecies = detectedSpecies;
@@ -110,11 +118,9 @@ export function OnboardingPage() {
         }
       }
       
-      // 如果没有识别成功，使用默认值
       if (!finalSpecies) finalSpecies = 'cat';
       if (!finalBreedId) finalBreedId = breeds.find(b => b.species === finalSpecies)?.id || null;
       
-      // 2. 生成图像
       const breedObj = breeds.find(b => b.id === finalBreedId);
       if (breedObj) {
         const imageUrl = await generatePetImageQwen({
@@ -123,6 +129,7 @@ export function OnboardingPage() {
           style: styleId,
           color: finalColor,
           features: finalFeatures,
+          model: imageModel,
         });
         
         if (imageUrl) {
@@ -140,42 +147,10 @@ export function OnboardingPage() {
     } finally {
       setIsIdentifying(false);
       setGeneratingImage(false);
-      setStepIndex(2); // 跳到名字步骤
+      setStepIndex(2);
     }
   };
 
-  // 手动选择流程
-  const handleManualCreate = async () => {
-    if (!species || !breed) return;
-    setGeneratingImage(true);
-    
-    try {
-      const url = await generatePetImageQwen({
-        breedName: breed.name,
-        species,
-        style: styleId,
-        color: identifiedInfo?.color,
-        features: identifiedInfo?.features,
-      });
-      
-      if (url) {
-        setGeneratedImageUrl(url);
-        setImageFromApi(true);
-      } else {
-        setGeneratedImageUrl(photoDataUrl || '/vite.svg');
-        setImageFromApi(false);
-      }
-    } catch (e) {
-      console.error('图像生成失败:', e);
-      setGeneratedImageUrl(photoDataUrl || '/vite.svg');
-      setImageFromApi(false);
-    } finally {
-      setGeneratingImage(false);
-      setStepIndex((i) => i + 1);
-    }
-  };
-
-  // 完成
   const handleFinish = () => {
     if (!species || !breed) return;
     
@@ -201,7 +176,6 @@ export function OnboardingPage() {
   }, []);
 
   const canQuickCreate = photoDataUrl && !isIdentifying && !isGeneratingImage;
-  const canManualCreate = species && breed && !isGeneratingImage;
 
   return (
     <div className="min-h-screen flex flex-col items-center justify-center p-6">
@@ -213,9 +187,65 @@ export function OnboardingPage() {
         <div className="flex items-center justify-center gap-2 mb-6">
           <Heart className="text-amber-500" size={28} />
           <h1 className="text-xl font-bold text-amber-900">创建专属宠物伙伴</h1>
+          <button 
+            onClick={() => setShowSettings(!showSettings)}
+            className="ml-auto p-2 text-gray-400 hover:text-gray-600"
+          >
+            <Settings size={20} />
+          </button>
         </div>
 
-        {/* 进度条 */}
+        {/* 模型设置面板 */}
+        <AnimatePresence>
+          {showSettings && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="mb-6 bg-gray-50 rounded-xl p-4 overflow-hidden"
+            >
+              <div className="mb-4">
+                <label className="text-sm font-medium text-gray-700 mb-2 block">图像生成模型</label>
+                <div className="grid grid-cols-3 gap-2">
+                  {IMAGE_GEN_MODELS.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setImageModel(m.id)}
+                      className={`p-2 rounded-lg text-left text-sm ${
+                        imageModel === m.id 
+                          ? 'bg-purple-500 text-white' 
+                          : 'bg-white border border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs opacity-80">{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-medium text-gray-700 mb-2 block">视觉识别模型</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {VISION_MODELS.map(m => (
+                    <button
+                      key={m.id}
+                      onClick={() => setVisionModel(m.id)}
+                      className={`p-2 rounded-lg text-left text-sm ${
+                        visionModel === m.id 
+                          ? 'bg-purple-500 text-white' 
+                          : 'bg-white border border-gray-200 text-gray-700'
+                      }`}
+                    >
+                      <div className="font-medium">{m.name}</div>
+                      <div className="text-xs opacity-80">{m.desc}</div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
         <div className="flex gap-1 mb-6">
           {STEPS.map((s, i) => (
             <div
@@ -228,7 +258,6 @@ export function OnboardingPage() {
         </div>
 
         <AnimatePresence mode="wait">
-          {/* 步骤1: 上传照片 */}
           {step === 'photo' && (
             <motion.div
               key="photo"
@@ -241,7 +270,6 @@ export function OnboardingPage() {
               
               {photoDataUrl && (
                 <div className="mt-6 w-full space-y-3">
-                  {/* 一键创建按钮 */}
                   <button
                     onClick={handleQuickCreate}
                     disabled={!canQuickCreate}
@@ -259,21 +287,11 @@ export function OnboardingPage() {
                       </>
                     )}
                   </button>
-                  
-                  {/* 手动选择按钮 */}
-                  <button
-                    onClick={handleManualCreate}
-                    disabled={!canManualCreate}
-                    className="w-full py-3 rounded-xl bg-amber-500 text-white font-medium disabled:opacity-50 hover:bg-amber-600 transition-colors"
-                  >
-                    手动选择（更多选项）
-                  </button>
                 </div>
               )}
             </motion.div>
           )}
 
-          {/* 步骤2: 生成中 */}
           {step === 'generate' && (
             <motion.div
               key="generate"
@@ -292,7 +310,6 @@ export function OnboardingPage() {
             </motion.div>
           )}
 
-          {/* 步骤3: 名字 */}
           {step === 'name' && (
             <motion.div
               key="name"
@@ -301,7 +318,6 @@ export function OnboardingPage() {
               exit={{ opacity: 0, x: -10 }}
               className="space-y-6"
             >
-              {/* 宠物信息摘要 */}
               {identifiedInfo && (
                 <div className="bg-purple-50 rounded-xl p-4 text-sm">
                   <div className="flex items-center gap-2 text-purple-700 mb-2">
@@ -317,7 +333,6 @@ export function OnboardingPage() {
                 </div>
               )}
               
-              {/* 生成的图像 */}
               <div className="flex flex-col items-center">
                 {generatedImageUrl && (
                   <img
@@ -326,14 +341,8 @@ export function OnboardingPage() {
                     className="w-40 h-40 rounded-2xl object-cover border-4 border-amber-200 shadow-lg mb-4"
                   />
                 )}
-                {!imageFromApi && (
-                  <p className="text-xs text-amber-700/80 mb-4">
-                    已使用上传照片（AI 生成失败时使用）
-                  </p>
-                )}
               </div>
               
-              {/* 名字输入 */}
               <div>
                 <label className="block text-sm font-medium text-amber-900 mb-2">
                   给你的宠物起个名字

@@ -69,6 +69,7 @@ export interface GenerateImageOptions {
   style?: ImageStyle;
   color?: string;
   features?: string;
+  model?: string;
 }
 
 /**
@@ -82,6 +83,7 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
   }
 
   const style: ImageStyle = options.style || 'realistic';
+  const model = options.model || 'qwen-image-2.0-pro';
   const prompt = buildPetImagePrompt(options.breedName, options.species, style, options.color, options.features);
 
   const res = await fetch(API_BASE, {
@@ -91,7 +93,7 @@ export async function generatePetImageQwen(options: GenerateImageOptions): Promi
       Authorization: `Bearer ${apiKey}`,
     },
     body: JSON.stringify({
-      model: 'qwen-image-2.0-pro',
+      model: model,
       input: {
         messages: [
           {
