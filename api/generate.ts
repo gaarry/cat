@@ -51,8 +51,12 @@ export default async function handler(req, res) {
 
     const data = await response.json();
     
-    if (data.choices?.[0]?.message?.content?.[0]?.image) {
-      return res.status(200).json({ imageUrl: data.choices[0].message.content[0].image });
+    // 兼容两种响应格式
+    const imageUrl = data.choices?.[0]?.message?.content?.[0]?.image || 
+                    data.output?.choices?.[0]?.message?.content?.[0]?.image;
+    
+    if (imageUrl) {
+      return res.status(200).json({ imageUrl });
     }
     
     return res.status(500).json({ error: '生成失败', details: data });
